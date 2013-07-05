@@ -2,7 +2,7 @@
   "name": "sisyphus-app",
   "subdomain": "bridgs-sisyphus-app",
   "description": "A node app that's doomed to fail.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "dependencies": {
     "express": "3.3.3",
     "mongoose": "3.6.13",
