@@ -37,8 +37,7 @@ app.get('/', function(req, res) {
 			res.send(kittens.length + " kittens named fluffy");
 		}
 	});*/
-	res.send("console");
-	console.log(process);
+	res.send("v0.0.7");
 });
 
 app.get('/hello.txt', function(req, res) {
