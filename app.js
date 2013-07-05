@@ -1,6 +1,7 @@
 var express = require('express');
 var lessMiddleware = require('less-middleware');
 var mongoose = require('mongoose');
+var router = require('./htmlrouter.js');
 var api = require('./apirouter.js');
 
 var app = express();
@@ -20,10 +21,9 @@ app.use(express.bodyParser());
 app.get('/api/items', api.getItems);
 app.get('/api/item/:code', api.getItemByCode);
 app.post('/api/item', api.createItem);
-app.get('/', function(req, res) {
-	res.render('index.jade', {
-		title: 'my blog'
-	})
-});
+app.delete('/api/item/:code', api.removeItemByCode);
+
+app.get('/', router.renderIndex);
+app.get('/admin', router.renderControlPanel);
 
 app.listen(3000);

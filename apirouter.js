@@ -12,12 +12,12 @@ function getItems(req, res) {
 	});
 }
 function getItemByCode(req, res) {
-	Item.find({ code: req.params['code'] }, function(err, items) {
+	Item.findOne({ code: req.params.code }, function(err, item) {
 		if(err) {
 			res.send({ successful: false, reason: "An error occurred", error: err });
 		}
 		else {
-			res.send({ successful: true, item: items });
+			res.send({ successful: true, item: item });
 		}
 	});
 }
@@ -32,7 +32,18 @@ function createItem(req, res) {
 		}
 	});
 }
+function removeItemByCode(req, res) {
+	Item.findOneAndRemove({ code: req.params.code }, function(err, item) {
+		if(err) {
+			res.send({ successful: false, reason: "An error occurred", error: err });
+		}
+		else {
+			res.send({ successful: true });
+		}
+	});
+}
 
 exports.getItems = getItems;
 exports.getItemByCode = getItemByCode;
 exports.createItem = createItem;
+exports.removeItemByCode = removeItemByCode;
