@@ -20,7 +20,7 @@ db.once('open', function callback() {
 });
 
 app.get('/', function(req, res) {
-	var fluffy = new Kitten({ name: (Math.random() < 0.5 ? 'fluffy' : 'spot') });
+	/*var fluffy = new Kitten({ name: (Math.random() < 0.5 ? 'fluffy' : 'spot') });
 	fluffy.save(function(err, fluffy) {
 		if(err) {
 			console.log("error saving fluffy");
@@ -36,7 +36,9 @@ app.get('/', function(req, res) {
 		else {
 			res.send(kittens.length + " kittens named fluffy");
 		}
-	});
+	});*/
+	res.send("console");
+	console.log(process);
 });
 
 app.get('/hello.txt', function(req, res) {
