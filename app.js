@@ -1,7 +1,7 @@
 var express = require('express');
 var mongoose = require('mongoose');
 var app = express();
-var isProd = true;
+var isProd = (process.env.NODE_ENV === "production");
 var connectionString = (isProd ? 'mongodb://nodejitsu:3faed9d24c309a50616a77ab247bbd1b@dharma.mongohq.com:10005/nodejitsudb2365331477' : 'mongodb://localhost/test');
 mongoose.connect(connectionString);
 var db = mongoose.connection;
