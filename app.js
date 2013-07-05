@@ -1,48 +1,29 @@
 var express = require('express');
+var lessMiddleware = require('less-middleware');
 var mongoose = require('mongoose');
+var api = require('./apirouter.js');
+
 var app = express();
-var isProd = (process.env.NODE_ENV === "production");
-var connectionString = (isProd ? 'mongodb://nodejitsu:3faed9d24c309a50616a77ab247bbd1b@dharma.mongohq.com:10005/nodejitsudb2365331477' : 'mongodb://localhost/test');
-mongoose.connect(connectionString);
-var db = mongoose.connection;
-var kittySchema, Kitten;
-db.on('error', function(err) {
-	console.error('Connection error:', err);
-});
-db.once('open', function callback() {
-	kittySchema = mongoose.Schema({
-		name: String
-	});
-	kittySchema.methods.speak = function() {
-		console.log("My name is " + (this.name ? this.name : "unknown"));
-	}
-	Kitten = mongoose.model('Kitten', kittySchema);
-});
+if('production' === app.get('env')) {
+	app.set('db uri', 'mongodb://nodejitsu:3faed9d24c309a50616a77ab247bbd1b@dharma.mongohq.com:10005/nodejitsudb2365331477');
+}
+else {
+	app.set('db uri', 'mongodb://localhost/test');
+}
 
+mongoose.connect(app.get('db uri'));
+
+app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
+app.use(express.static(__dirname + '/public'));
+app.use(express.bodyParser());
+
+app.get('/api/items', api.getItems);
+app.get('/api/item/:code', api.getItemByCode);
+app.post('/api/item', api.createItem);
 app.get('/', function(req, res) {
-	/*var fluffy = new Kitten({ name: (Math.random() < 0.5 ? 'fluffy' : 'spot') });
-	fluffy.save(function(err, fluffy) {
-		if(err) {
-			console.log("error saving fluffy");
-		}
-		else {
-			fluffy.speak();
-		}
-	});
-	Kitten.find({ name: /^fluff/ }, function(err, kittens) {
-		if(err) {
-			res.send("Howdy y'all");
-		}
-		else {
-			res.send(kittens.length + " kittens named fluffy");
-		}
-	});*/
-	res.send("v0.0.7");
-});
-
-app.get('/hello.txt', function(req, res) {
-	res.send("Hello World");
+	res.render('index.jade', {
+		title: 'my blog'
+	})
 });
 
 app.listen(3000);
-console.log("Listening on port 3000");
