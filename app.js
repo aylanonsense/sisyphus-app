@@ -10,14 +10,7 @@ var chat = require('./chat.js');
 var app = express();
 app.http().io();
 
-if('production' === app.get('env') && config.db.uri_prod !== null) {
-	app.set('db uri', config.db.uri_prod);
-}
-else {
-	app.set('db uri', config.db.uri_dev);
-}
-
-mongoose.connect(app.get('db uri'));
+mongoose.connect(config.db.uri);
 
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());
@@ -25,7 +18,7 @@ app.use(express.static(__dirname + '/public'));
 app.use(express.cookieParser());
 app.use(express.session({
 	store: new MongoStore({
-		url: app.get('db uri')
+		url: config.db.uri
 	}),
 	secret: config.session.secret
 }));

@@ -1,7 +1,6 @@
 exports.db = {
-	uri_dev: 'mongodb://localhost/test',
-	uri_prod: null
+	uri: (process.env.DB_URI || 'mongodb://localhost/test')
 };
 exports.session = {
-	secret: '12345'
-};
+	secret: (process.env.SESSION_SECRET || 'asupersecuresecret')
+};;
