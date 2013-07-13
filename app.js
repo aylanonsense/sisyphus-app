@@ -1,13 +1,15 @@
 var express = require('express.io');
+var fs = require('fs');
 var lessMiddleware = require('less-middleware');
-var config = require('./resources/config.js');
 var MongoStore = require('connect-mongo')(express);
 var mongoose = require('mongoose');
-var router = require('./resources/router.js');
-var chat = require('./chat.js');
+var config = require('./config/config');
+var router = require('./router');
+var chat = require('./chat');
+var models = require('./models');
+var app;
 
-//set up app
-var app = express();
+app = express();
 app.http().io();
 
 mongoose.connect(config.db.uri);
@@ -17,13 +19,30 @@ app.use(express.bodyParser());
 app.use(express.static(__dirname + '/public'));
 app.use(express.cookieParser());
 app.use(express.session({
-	store: new MongoStore({
-		url: config.db.uri
-	}),
+	store: new MongoStore({ url: config.db.uri }),
 	secret: config.session.secret
 }));
 
 app.io.route('chat-join', chat.onJoin);
+app.get('/', router.renderIndex);
+
+app.listen(config.server.port);
+
+exports.app = app;
+
+/*
+var https = require('https');
+var secureApp;
+secureApp = express();
+https.createServer({
+	key: fs.readFileSync('config/ssl.key').toString(),
+	cert: fs.readFileSync('config/ssl.cert').toString()
+}, secureApp).listen(config.server.securePort);
+secureApp.get('/', function(req, res) {
+	res.send('hello!');
+});
+exports.secureApp = secureApp;
+*/
 
 /*app.get('/api/items', api.getItems);
 app.get('/api/item/:code', api.getItemByCode);
@@ -46,7 +65,3 @@ app.get('/', function(req, res) {
 
 //app.get('/', router.renderIndex);
 //app.get('/admin', router.renderControlPanel);*/
-
-app.get('/', router.renderIndex);
-
-app.listen(process.env.PORT || 3000);
