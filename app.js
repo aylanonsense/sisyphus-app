@@ -1,17 +1,20 @@
 var express = require('express.io');
 var lessMiddleware = require('less-middleware');
+var config = require('./resources/config.js');
+var MongoStore = require('connect-mongo')(express);
 var mongoose = require('mongoose');
-var router = require('./htmlrouter.js');
-var api = require('./apirouter.js');
+var router = require('./resources/router.js');
+var chat = require('./chat.js');
 
+//set up app
 var app = express();
 app.http().io();
 
-if('production' === app.get('env')) {
-	app.set('db uri', 'mongodb://nodejitsu:3faed9d24c309a50616a77ab247bbd1b@dharma.mongohq.com:10005/nodejitsudb2365331477');
+if('production' === app.get('env') && config.db.uri_prod !== null) {
+	app.set('db uri', config.db.uri_prod);
 }
 else {
-	app.set('db uri', 'mongodb://localhost/test');
+	app.set('db uri', config.db.uri_dev);
 }
 
 mongoose.connect(app.get('db uri'));
@@ -19,8 +22,17 @@ mongoose.connect(app.get('db uri'));
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());
 app.use(express.static(__dirname + '/public'));
+app.use(express.cookieParser());
+app.use(express.session({
+	store: new MongoStore({
+		url: app.get('db uri')
+	}),
+	secret: config.session.secret
+}));
 
-app.get('/api/items', api.getItems);
+app.io.route('chat-join', chat.onJoin);
+
+/*app.get('/api/items', api.getItems);
 app.get('/api/item/:code', api.getItemByCode);
 app.post('/api/item', api.createItem);
 app.delete('/api/item/:code', api.removeItemByCode);
@@ -40,6 +52,8 @@ app.get('/', function(req, res) {
 })
 
 //app.get('/', router.renderIndex);
-//app.get('/admin', router.renderControlPanel);
+//app.get('/admin', router.renderControlPanel);*/
 
-app.listen(3000);
+app.get('/', router.renderIndex);
+
+app.listen(process.env.PORT || 3000);

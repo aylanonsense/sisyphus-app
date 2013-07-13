@@ -1,5 +1,10 @@
 extends layout
 
+block scripts
+  script(type='text/javascript', src='/javascripts/chatclient.js')
+
 block content
-  h1= title
-  p Welcome to #{title}
+  h1 Chat client
+  ol#chat
+  p Talk:
+    input#talk(type='text')
