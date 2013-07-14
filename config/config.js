@@ -7,7 +7,6 @@ module.exports = {
 		secret: (process.env.SESSION_SECRET || 'asupersecuresecret')
 	},
 	server: {
-		port: (process.env.PORT || 3000),
-		securePort: (process.env.SSL_PORT || 3001)
+		port: (process.env.PORT || 3000)
 	}
 };

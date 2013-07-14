@@ -1,0 +1,17 @@
+extends layout
+
+block content
+  h1 Login
+  - if(justRegistered)
+    .registration-successful Registration successful! You may now log in.
+  - if(errors)
+    ul.errors
+      li There were errors...
+  form(method='post')
+    | Username:
+    input(type='text', name='username', value='#{form.username}')
+    br
+    | Password:
+    input(type='password', name='password', value='')
+    br
+    input(type='submit', value='Login')

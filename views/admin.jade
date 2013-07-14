@@ -1,0 +1,26 @@
+extends layout
+
+block content
+  h1 Admin Console
+  h2 Users
+  if users
+    table.users
+      thead
+        tr
+          th Date Created
+          th Username
+          th E-mail
+          th Password
+          th Salt
+          th Admin
+      tbody
+        for user in users
+          tr
+            td #{user.dateCreated.getMonth()+1}/#{user.dateCreated.getDate()}/#{user.dateCreated.getFullYear()}
+            td= user.username
+            td= user.email
+            td #{user.hashedPassword.slice(0,6)}...
+            td #{user.salt.slice(0,6)}...
+            td= user.isAdmin
+  else
+    p No users
