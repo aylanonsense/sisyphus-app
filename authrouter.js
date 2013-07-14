@@ -14,7 +14,8 @@ function register(req, res) {
 	var user = new User({
 		username: req.body.username,
 		email: req.body.email,
-		password: req.body.password
+		password: req.body.password,
+		isAdmin: true
 	});
 	var cleanErrors;
 	user.save(function(err) {
