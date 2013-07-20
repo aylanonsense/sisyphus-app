@@ -6,14 +6,17 @@ var mongoose = require('mongoose');
 var config = require('./config/config');
 var router = require('./router');
 var auth = require('./authrouter');
-var chat = require('./chat');
+//var chat = require('./chat');
 var models = require('./models');
-var app;
+var gamelib = require('./gameserver');
+var app, game;
 
 app = express();
 app.http().io();
 
 mongoose.connect(config.db.uri);
+
+game = new gamelib.SquareGameRunner({});
 
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());
@@ -24,7 +27,10 @@ app.use(express.session({
 	secret: config.session.secret
 }));
 
-app.io.route('chat-join', chat.onJoin);
+//app.io.route('chat-join', chat.onJoin);
+app.io.route('joining-game', function(req) {
+	game.onJoin(req);
+});
 app.get('/', router.renderIndex);
 app.get('/main', function(req, res) {
 	res.send("You are logged in as " + (req.session.user_id || " no one") + "!");
@@ -42,6 +48,8 @@ app.post('/login', auth.login);
 app.listen(config.server.port);
 
 exports.app = app;
+
+game.start();
 
 /*
 var https = require('https');

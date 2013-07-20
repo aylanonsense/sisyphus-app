@@ -6,17 +6,7 @@ var bridgsSquareGameLibrary = (function() {
 			params.renderTarget.append(this.renderer.getRoot());
 		}
 		this.inputListener = new KeyboardInputListener(this.game, [ this.renderer ], new SquareGameKeyMapping());
-		if(params && params.multiplayer) {
-			if(params.server) {
-				this.networkHandler = new ServerNetworkHandler(this.game);
-			}
-			else {
-				this.networkHandler = new ClientNetworkHandler(this.game);
-			}
-		}
-		else {
-			this.networkHandler = new SingleplayerNetworkHandler(this.game);
-		}
+		this.networkHandler = new params.networkHandler(this.game);
 		this.game.setNetworkHandler(this.networkHandler);
 		this.timer = null;
 	}
@@ -46,44 +36,70 @@ var bridgsSquareGameLibrary = (function() {
 
 
 
-	function ServerNetworkHandler(game) {
-		this.game = game;
-	}
-	ServerNetworkHandler.prototype.sendAction = function(action, results) {
-		//TODO
-	};
-
-
-
 	function ClientNetworkHandler(game) {
-		this.game = game;
+		var self = this;
+		this._game = game;
+		this._socket = io.connect();
+		this._socket.on('joined', function(data) {
+			self.connected(data.id);
+		});
+		this._socket.on('action', function(data) {
+			self.receiveAction(data.action, data.results);
+		});
+		this._socket.emit('joining-game');
 	}
+	ClientNetworkHandler.prototype.connected = function(id) {
+		this._game.joinedAs(id);
+	};
 	ClientNetworkHandler.prototype.sendAction = function(action, results) {
-		//TODO
+		this._socket.emit('action', { action: action, results: results });
+	};
+	ClientNetworkHandler.prototype.receiveAction = function(action, results) {
+		this._game.receiveAction(action, results);
 	};
 
 
 
 	function SingleplayerNetworkHandler(game) {
-		this.game = game;
+		this._game = game;
 	}
-	SingleplayerNetworkHandler.prototype.sendAction = function(action, results) {};
+	SingleplayerNetworkHandler.prototype.sendAction = function(action, results) {
+		if(action.type === 'spawn') {
+			this._game.receiveAction({
+				type: 'spawn',
+				square: {
+					id: 0,
+					x: 200,
+					y: 200,
+					color: 'red'
+				}
+			});
+		}
+	};
 
 
 
 	function SquareGame() {
-		this._playerId = -1;
-		this._playerIsMovingUp = false;
-		this._playerIsMovingDown = false;
-		this._playerIsMovingLeft = false;
-		this._playerIsMovingRight = false;
-		this._players = [];
+		this._myPlayerId = null;
+		this._playerIds = [];
+		this._hasSpawned = false;
+		this._mySquareId = -1;
+		this._mySquareIsMovingUp = false;
+		this._mySquareIsMovingDown = false;
+		this._mySquareIsMovingLeft = false;
+		this._mySquareIsMovingRight = false;
+		this._squares = [];
 		this._networkHandler = null;
-		//TODO remove this line:
-		this._playerId = this._createPlayer(0, 100, 100, 'red').getId();
 	}
+	SquareGame.prototype.joinedAs = function(id) {
+		this._myPlayerId = id;
+		this.playerJoined(id);
+	};
+	SquareGame.prototype.playerJoined = function(id) {
+		this._playerIds.push(id);
+	};
 	SquareGame.prototype.update = function(ms) {
-		this._players.forEach(function(player) {
+		this._squares.forEach(function(player) {
 			player.update(ms);
 		});
 	};
@@ -91,48 +107,53 @@ var bridgsSquareGameLibrary = (function() {
 		var action = null;
 		var results = null;
 		if(command.type === 'move') {
-			if(this._playerId > -1) {
+			if(this._mySquareId > -1) {
 				if(command.starting) {
 					action = { type: 'move', dir: command.dir };
 					switch(command.dir) {
 						case 'up':
-							this._playerIsMovingUp = true;
+							this._mySquareIsMovingUp = true;
 							break;
 						case 'down':
-							this._playerIsMovingDown = true;
+							this._mySquareIsMovingDown = true;
 							break;
 						case 'left':
-							this._playerIsMovingLeft = true;
+							this._mySquareIsMovingLeft = true;
 							break;
 						case 'right':
-							this._playerIsMovingRight = true;
+							this._mySquareIsMovingRight = true;
 							break;
 					}
 				}
 				else {
 					switch(command.dir) {
 						case 'up':
-							this._playerIsMovingUp = false;
-							action = (this._playerIsMovingDown ? { type: 'move', dir: 'down' } : { type: 'stop', dir: 'vertically' });
+							this._mySquareIsMovingUp = false;
+							action = (this._mySquareIsMovingDown ? { type: 'move', dir: 'down' } : { type: 'stop', dir: 'vertically' });
 							break;
 						case 'down':
-							this._playerIsMovingDown = false;
-							action = (this._playerIsMovingUp ? { type: 'move', dir: 'up' } : { type: 'stop', dir: 'vertically' });
+							this._mySquareIsMovingDown = false;
+							action = (this._mySquareIsMovingUp ? { type: 'move', dir: 'up' } : { type: 'stop', dir: 'vertically' });
 							break;
 						case 'left':
-							this._playerIsMovingLeft = false;
-							action = (this._playerIsMovingRight ? { type: 'move', dir: 'right' } : { type: 'stop', dir: 'horizontally' });
+							this._mySquareIsMovingLeft = false;
+							action = (this._mySquareIsMovingRight ? { type: 'move', dir: 'right' } : { type: 'stop', dir: 'horizontally' });
 							break;
 						case 'right':
-							this._playerIsMovingRight = false;
-							action = (this._playerIsMovingLeft ? { type: 'move', dir: 'left' } : { type: 'stop', dir: 'horizontally' });
+							this._mySquareIsMovingRight = false;
+							action = (this._mySquareIsMovingLeft ? { type: 'move', dir: 'left' } : { type: 'stop', dir: 'horizontally' });
 							break;
 					}
 				}
 			}
 		}
+		else if(command.type === 'confirm') {
+			if(!this._hasSpawned) {
+				this._networkHandler.sendAction({ type: 'spawn' });
+			}
+		}
 		if(action !== null) {
-			action.player = this._playerId;
+			action.squareId = this._mySquareId;
 			results = this.receiveAction(action);
 			if(this._networkHandler !== null) {
 				this._networkHandler.sendAction(action, results);
@@ -141,60 +162,66 @@ var bridgsSquareGameLibrary = (function() {
 	};
 	SquareGame.prototype.receiveAction = function(action) {
 		var results = null;
-		var player = null;
+		var square = null;
 		if(action.type === 'move') {
-			player = this._getPlayer(action.player);
-			player.startMoving(action.dir);
-			results = player.getState('movement');
+			square = this._getSquare(action.squareId);
+			square.startMoving(action.dir);
+			results = square.getState('movement');
 		}
 		else if(action.type === 'stop') {
-			player = this._getPlayer(action.player);
-			player.stopMoving(action.dir);
-			results = player.getState('movement');
+			square = this._getSquare(action.squareId);
+			square.stopMoving(action.dir);
+			results = square.getState('movement');
+		}
+		else if(action.type === 'spawn') {
+			square = this._createSquare(action.square.id);
+			square.setState(action.square);
+			this._mySquareId = action.square.id;
+			this._hasSpawned = true;
 		}
 		return results;
 	};
-	SquareGame.prototype._getPlayer = function(id) {
-		for(var i = 0; i < this._players.length; i++) {
-			if(this._players[i].getId() === id) {
-				return this._players[i];
+	SquareGame.prototype._getSquare = function(id) {
+		for(var i = 0; i < this._squares.length; i++) {
+			if(this._squares[i].getId() === id) {
+				return this._squares[i];
 			}
 		}
 		return null;
 	};
-	SquareGame.prototype._createPlayer = function(id, x, y, color) {
-		var player = new SquarePlayer(id, x, y, color);
-		this._players.push(player);
-		return player;
+	SquareGame.prototype._createSquare = function(id, x, y, color) {
+		var square = new SquareEntity(id, x, y, color);
+		this._squares.push(square);
+		return square;
 	};
 	SquareGame.prototype.setNetworkHandler = function(networkHandler) {
 		this._networkHandler = networkHandler;
 	};
 	SquareGame.prototype.getRenderableState = function() {
-		var playerStates = this._players.map(function(player) {
-			return player.getState('render');
+		var squares = this._squares.map(function(square) {
+			return square.getState('render');
 		});
 		return {
-			players: playerStates
+			squares: squares
 		};
 	};
 
 
 
-	function SquarePlayer(id, x, y, color) {
+	function SquareEntity(id, x, y, color) {
 		this._id = id;
-		this._x = x;
-		this._y = y;
-		this._color = color;
+		this._x = (x || 0);
+		this._y = (y || 0);
+		this._color = (color || 'black');
 		this._horizontalMove = 0;
 		this._verticalMove = 0;
 	}
-	SquarePlayer.MOVE_SPEED = 150;
-	SquarePlayer.DIAGONAL_MOVE_SPEED = SquarePlayer.MOVE_SPEED / Math.sqrt(2);
-	SquarePlayer.prototype.getId = function() {
+	SquareEntity.MOVE_SPEED = 150;
+	SquareEntity.DIAGONAL_MOVE_SPEED = SquareEntity.MOVE_SPEED / Math.sqrt(2);
+	SquareEntity.prototype.getId = function() {
 		return this._id;
 	};
-	SquarePlayer.prototype.startMoving = function(dir) {
+	SquareEntity.prototype.startMoving = function(dir) {
 		switch(dir) {
 			case 'up': this._verticalMove = -1; break;
 			case 'down': this._verticalMove = 1; break;
@@ -202,21 +229,21 @@ var bridgsSquareGameLibrary = (function() {
 			case 'right': this._horizontalMove = 1; break;
 		}
 	};
-	SquarePlayer.prototype.stopMoving = function(dir) {
+	SquareEntity.prototype.stopMoving = function(dir) {
 		switch(dir) {
 			case 'vertically': this._verticalMove = 0; break;
 			case 'horizontally': this._horizontalMove = 0; break;
 		}
 	};
-	SquarePlayer.prototype.update = function(ms) {
-		var moveSpeed = SquarePlayer.MOVE_SPEED;
+	SquareEntity.prototype.update = function(ms) {
+		var moveSpeed = SquareEntity.MOVE_SPEED;
 		if(this._horizontalMove !== 0 && this._verticalMove !== 0) {
-			moveSpeed = SquarePlayer.DIAGONAL_MOVE_SPEED;
+			moveSpeed = SquareEntity.DIAGONAL_MOVE_SPEED;
 		}
 		this._x += this._horizontalMove * moveSpeed * ms / 1000;
 		this._y += this._verticalMove * moveSpeed * ms / 1000;
 	};
-	SquarePlayer.prototype.getState = function(parts) {
+	SquareEntity.prototype.getState = function(parts) {
 		switch(parts) {
 			case 'render':
 				return {
@@ -240,7 +267,7 @@ var bridgsSquareGameLibrary = (function() {
 				};
 		}
 	};
-	SquarePlayer.prototype.setState = function(state) {
+	SquareEntity.prototype.setState = function(state) {
 		if(state.x) this._x = state.x;
 		if(state.y) this._y = state.y;
 		if(state.color) this._color = state.color;
@@ -266,17 +293,17 @@ var bridgsSquareGameLibrary = (function() {
 		var self = this;
 		var state = this._game.getRenderableState();
 		this._clearRenderArea();
-		state.players.forEach(function(player) {
-			self._drawPlayer(player.color, player.x, player.y);
+		state.squares.forEach(function(square) {
+			self._drawSquare(square.color, square.x, square.y);
 		});
 	};
 	SquareGameRenderer.prototype._clearRenderArea = function() {
 		this._root.empty();
 	};
-	SquareGameRenderer.prototype._drawPlayer = function(color, x, y) {
-		var player = $('<div style="position:absolute;width:25px;height:25px;"></div>');
-		player.css('left', x + 'px').css('top', y + 'px').css('background-color', (color || 'black'));
-		player.appendTo(this._root);
+	SquareGameRenderer.prototype._drawSquare = function(color, x, y) {
+		$('<div style="position:absolute;width:25px;height:25px;"></div>')
+			.css('left', x + 'px').css('top', y + 'px').css('background-color', (color || 'black'))
+			.appendTo(this._root);
 	};
 	SquareGameRenderer.prototype.addInputListener = function(inputListener) {
 		this._inputListeners.push(inputListener);
@@ -319,6 +346,7 @@ var bridgsSquareGameLibrary = (function() {
 					case 65: return { type: 'move',  starting: true, dir: 'left' };
 					case 83: return { type: 'move',  starting: true, dir: 'down' };
 					case 68: return { type: 'move',  starting: true, dir: 'right' };
+					case 13: return { type: 'confirm' };
 				}
 			}
 			else if(input.type === 'release') {
@@ -336,7 +364,10 @@ var bridgsSquareGameLibrary = (function() {
 
 
 	return {
-		SquareGameRunner: SquareGameRunner
+		SquareGameRunner: SquareGameRunner,
+		SquareGame: SquareGame,
+		SingleplayerNetworkHandler: SingleplayerNetworkHandler,
+		ClientNetworkHandler: ClientNetworkHandler
 	};
 })();
 
@@ -346,7 +377,7 @@ if(typeof module !== "undefined" && typeof module.exports !== "undefined") {
 else {
 	$(document).ready(function() {
 		var g = new bridgsSquareGameLibrary.SquareGameRunner({
-			multiplayer: false,
+			networkHandler: bridgsSquareGameLibrary.ClientNetworkHandler,
 			renderTarget: $('#square-game-area')
 		});
 		g.start();
