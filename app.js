@@ -8,7 +8,7 @@ var router = require('./router');
 var auth = require('./authrouter');
 //var chat = require('./chat');
 var models = require('./models');
-var gamelib = require('./gameserver');
+var SquareGameServer = require('./squaregameserver');
 var app, game;
 
 app = express();
@@ -16,7 +16,7 @@ app.http().io();
 
 mongoose.connect(config.db.uri);
 
-game = new gamelib.SquareGameRunner({});
+game = new SquareGameServer();
 
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());
@@ -28,8 +28,8 @@ app.use(express.session({
 }));
 
 //app.io.route('chat-join', chat.onJoin);
-app.io.route('joining-game', function(req) {
-	game.onJoin(req);
+app.io.route('connect-requested', function(req) {
+	game.onConnectRequested(req);
 });
 app.get('/', router.renderIndex);
 app.get('/main', function(req, res) {

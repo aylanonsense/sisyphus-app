@@ -1,7 +1,7 @@
-var gamelib = require('./public/javascripts/game');
+var SquareGame = require('./public/javascripts/squaregame');
 
 function SquareGameServerRunner(params) {
-	this._game = new gamelib.SquareGame();
+	this._game = new SquareGame();
 	this._networkHandler = new ServerNetworkHandler(this._game);
 	this._game.setNetworkHandler(this._networkHandler);
 	this._timer = null;
@@ -28,8 +28,8 @@ SquareGameServerRunner.prototype.stop = function() {
 SquareGameServerRunner.prototype.update = function(ms) {
 	this._game.update(ms);
 };
-SquareGameServerRunner.prototype.onJoin = function(req) {
-	this._networkHandler.onJoin(req);
+SquareGameServerRunner.prototype.onConnectRequested = function(req) {
+	this._networkHandler.onConnectRequested(req);
 };
 
 
@@ -39,30 +39,34 @@ function ServerNetworkHandler(game) {
 	this._nextConnId = 0;
 	this._conns = {};
 }
-ServerNetworkHandler.prototype.onJoin = function(conn) {
+ServerNetworkHandler.prototype.onConnectRequested = function(conn) {
+	var action = null;
 	var connId = this._nextConnId++;
-	this._game.playerJoined(connId);
 	this._conns[connId] = conn;
 	conn.socket.on('action', function(data) {
-		//TODO route through game
-		conn.io.emit('action', {
-			action: {
-				type: 'spawn',
-				square: {
-					id: 0,
-					x: 200,
-					y: 200,
-					color: 'green'
+		if(data.action.type === 'spawn') {
+			conn.io.emit('action', {
+				//TODO move into some game authority
+				action: {
+					type: 'spawn',
+					squareId: 0,
+					square: {
+						x: 400*Math.random(),
+						y: 400*Math.random(),
+						color: (Math.random() < 0.5 ? 'blue' : 'red')
+					},
+					isOwner: true
 				}
-			}
-		});
+			});
+		}
 	});
-	conn.io.emit('joined', { id: connId });
+	conn.io.emit('connect-accepted', { id: connId });
+	conn.io.emit('state', { state: this._game.getState() });
 };
 ServerNetworkHandler.prototype.sendAction = function(action, results, conn) {
-	console.log("Server.sendAction(", action, ",", results, ")");
+	
 };
 
 
 
-exports.SquareGameRunner = SquareGameServerRunner;
+module.exports = SquareGameServerRunner;
