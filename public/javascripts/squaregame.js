@@ -1,220 +1,109 @@
 var SquareGame = (function() {
+	var debug = true;
+
+
+
 	function SquareGame() {
-		this._squares = [];
-		this._mySquareId = null;
-		this._networkHandler = null;
+		this._entities = [];
 	}
-	SquareGame.prototype.update = function(ms) {
-		this._squares.forEach(function(square) {
-			square.update(ms);
-		});
-	};
-	SquareGame.prototype.receiveCommand = function(command) {
-		var action = null;
-		var prediction = null;
-		switch(command.type) {
-			case 'startMoving':
-				action = this._receiveStartMovingCommand(command);
-				break;
-			case 'stopMoving':
-				action = this._receiveStopMovingCommand(command);
-				break;
-			case 'confirm':
-				action = this._receiveConfirmCommand(command);
-				break;
-		}
-		if(action !== null) {
-			if(action.canPredict === false) {
-				this._networkHandler.sendAction(action, null);
+	SquareGame.prototype._getEntity = function(entityId) {
+		for(var i = 0; i < this._entities.length; i++) {
+			if(this._entities[i].getId() === entityId) {
+				return this._entities[i];
 			}
-			else {
-				prediction = this.receiveAction(action);
-				this._networkHandler.sendAction(action, prediction);
-			}
-		}
-	};
-	SquareGame.prototype._receiveStartMovingCommand = function(command) {
-		var square = null;
-		if(this._mySquareId !== null) {
-			return {
-				type: 'startMoving',
-				squareId: this._mySquareId,
-				dir: command.dir
-			};
-		}
-		return null;
-	};
-	SquareGame.prototype._receiveStopMovingCommand = function(command) {
-		if(this._mySquareId !== null) {
-			return {
-				type: 'stopMoving',
-				squareId: this._mySquareId,
-				dir: command.dir
-			};
-		}
-		return null;
-	};
-	SquareGame.prototype._receiveConfirmCommand = function(command) {
-		if(this._mySquareId === null) {
-			return {
-				type: 'spawn',
-				canPredict: false
-			};
 		}
 		return null;
 	};
 	SquareGame.prototype.receiveAction = function(action) {
+		if(debug) console.log("action:", action);
 		switch(action.type) {
-			case 'startMoving': return this._receiveStartMovingAction(action);
-			case 'stopMoving': return this._receiveStopMovingAction(action);
-			case 'spawn': return this._receiveSpawnAction(action);
+			case 'START_MOVING_ENTITY': this._receiveStartMovingEntityAction(action.entityId, action.dir); break;
+			case 'STOP_MOVING_ENTITY': this._receiveStopMovingEntityAction(action.entityId, action.dir); break;
+			case 'SPAWN_ENTITY': this._recieveSpawnEntityAction(action.entityId, action.entityState); break;
 		}
-		return null;
 	};
-	SquareGame.prototype._receiveStartMovingAction = function(action) {
-		var square = this._getSquare(action.squareId);
-		square.startMoving(action.dir);
-		return square.getState('movement');
+	SquareGame.prototype._receiveStartMovingEntityAction = function(entityId, dir) {
+		this._getEntity(entityId).startMoving(dir);
 	};
-	SquareGame.prototype._receiveStopMovingAction = function(action) {
-		var square = this._getSquare(action.squareId);
-		square.stopMoving(action.dir);
-		return square.getState('movement');
+	SquareGame.prototype._receiveStopMovingEntityAction = function(entityId, dir) {
+		this._getEntity(entityId).stopMoving(dir);
 	};
-	SquareGame.prototype._receiveSpawnAction = function(action) {
-		var square = this._createSquare(action.squareId, action.square);
-		if(action.isOwner) {
-			this._mySquareId = action.squareId;
-		}
-		return square.getState();
+	SquareGame.prototype._recieveSpawnEntityAction = function(entityId, entityState) {
+		var entity = new SquareGameEntity(entityId);
+		entity.setState(entityState);
+		this._entities.push(entity);
 	};
-	SquareGame.prototype._getSquare = function(id) {
-		for(var i = 0; i < this._squares.length; i++) {
-			if(this._squares[i].getId() === id) {
-				return this._squares[i];
-			}
-		}
-		return null;
+	SquareGame.prototype.update = function(ms) {
+		this._entities.forEach(function(entity) {
+			entity.update(ms);
+		});
 	};
-	SquareGame.prototype._createSquare = function(id, state) {
-		var square = new SquareEntity(id, state);
-		this._squares.push(square);
-		return square;
-	};
-	SquareGame.prototype.setNetworkHandler = function(networkHandler) {
-		this._networkHandler = networkHandler;
-	};
-	SquareGame.prototype.getState = function(parts) {
-		parts = (parts || 'all');
+	SquareGame.prototype.getState = function() {
 		return {
-			squares: this._squares.map(function(square) {
-				return square.getState(parts);
+			entities: this._entities.map(function(entity) {
+				return entity.getState();
 			})
 		};
 	};
-	SquareGame.prototype.getRenderableState = function() {
-		return this.getState('render');
-	};
-	SquareGame.prototype.updateState = function(state) {
-		state.squares.forEach(function(state) {
-			var square = _getSquare(state.id);
-			if(square === null) {
-				_createSquare(state.id, state);
-			}
-			else {
-				square.updateState(state);
-			}
+	SquareGame.prototype.setState = function(state) {
+		console.log("state:", state);
+		this._entities = state.entities.map(function(entityState) {
+			var entity = new SquareGameEntity(entityState.id);
+			entity.setState(entityState);
+			return entity;
 		});
 	};
 
 
 
-	function SquareEntity(id, state) {
+	function SquareGameEntity(id) {
 		this._id = id;
 		this._x = 0;
 		this._y = 0;
 		this._color = 'black';
 		this._horizontalMove = 0;
 		this._verticalMove = 0;
-		if(state) {
-			this.updateState(state);
-		}
 	}
-	SquareEntity.MOVE_SPEED = 150;
-	SquareEntity.DIAGONAL_MOVE_SPEED = SquareEntity.MOVE_SPEED / Math.sqrt(2);
-	SquareEntity.prototype.getId = function() {
+	SquareGameEntity.MOVE_SPEED = 150;
+	SquareGameEntity.DIAGONAL_MOVE_SPEED = SquareGameEntity.MOVE_SPEED / Math.sqrt(2);
+	SquareGameEntity.prototype.getId = function() {
 		return this._id;
 	};
-	SquareEntity.prototype.startMoving = function(dir) {
+	SquareGameEntity.prototype.startMoving = function(dir) {
 		switch(dir) {
-			case 'up':
-				this._verticalMove = -1;
-				break;
-			case 'down':
-				this._verticalMove = 1;
-				break;
-			case 'left':
-				this._horizontalMove = -1;
-				break;
-			case 'right':
-				this._horizontalMove = 1;
-				break;
+			case 'up': this._verticalMove = -1; break;
+			case 'down': this._verticalMove = 1; break;
+			case 'left': this._horizontalMove = -1; break;
+			case 'right': this._horizontalMove = 1; break;
 		}
 	};
-	SquareEntity.prototype.stopMoving = function(dir) {
+	SquareGameEntity.prototype.stopMoving = function(dir) {
 		switch(dir) {
-			case 'up':
-				this._verticalMove = (this._verticalMove === 1 ? 1 : 0);
-				break;
-			case 'down':
-				this._verticalMove = (this._verticalMove === -1 ? -1 : 0);
-				break;
-			case 'left':
-				this._horizontalMove = (this._horizontalMove === 1 ? 1 : 0);
-				break;
-			case 'right':
-				this._horizontalMove = (this._horizontalMove === -1 ? -1 : 0);
-				break;
+			case 'up': this._verticalMove = (this._verticalMove === 1 ? 1 : 0); break;
+			case 'down': this._verticalMove = (this._verticalMove === -1 ? -1 : 0); break;
+			case 'left': this._horizontalMove = (this._horizontalMove === 1 ? 1 : 0); break;
+			case 'right': this._horizontalMove = (this._horizontalMove === -1 ? -1 : 0); break;
 		}
 	};
-	SquareEntity.prototype.update = function(ms) {
-		var moveSpeed = SquareEntity.MOVE_SPEED;
+	SquareGameEntity.prototype.update = function(ms) {
+		var moveSpeed = SquareGameEntity.MOVE_SPEED;
 		if(this._horizontalMove !== 0 && this._verticalMove !== 0) {
-			moveSpeed = SquareEntity.DIAGONAL_MOVE_SPEED;
+			moveSpeed = SquareGameEntity.DIAGONAL_MOVE_SPEED;
 		}
 		this._x += this._horizontalMove * moveSpeed * ms / 1000;
 		this._y += this._verticalMove * moveSpeed * ms / 1000;
 	};
-	SquareEntity.prototype.getState = function(parts) {
-		switch(parts) {
-			case 'render':
-				return {
-					type: 'square',
-					id: this._id,
-					x: this._x,
-					y: this._y,
-					color: this._color
-				};
-			case 'movement':
-				return {
-					type: 'square',
-					id: this._id,
-					hori: this._horizontalMove,
-					vert: this._verticalMove
-				};
-			default:
-				return {
-					type: 'square',
-					id: this._id,
-					x: this._x,
-					y: this._y,
-					color: this._color,
-					hori: this._horizontalMove,
-					vert: this._verticalMove
-				};
-		}
+	SquareGameEntity.prototype.getState = function() {
+		return {
+			id: this._id,
+			x: this._x,
+			y: this._y,
+			color: this._color,
+			hori: this._horizontalMove,
+			vert: this._verticalMove
+		};
 	};
-	SquareEntity.prototype.updateState = function(state) {
+	SquareGameEntity.prototype.setState = function(state) {
 		if(state.x) this._x = state.x;
 		if(state.y) this._y = state.y;
 		if(state.color) this._color = state.color;
