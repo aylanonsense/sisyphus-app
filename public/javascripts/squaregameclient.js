@@ -50,7 +50,6 @@ var SquareGameClient = (function() {
 			case 'END_MOVE': command = this._receiveEndMoveControl(control.dir); break;
 			case 'CONFIRM': command = this._receiveConfirmControl(); break;
 		}
-		if(debug) console.log("command:", command);
 		if(command !== null) {
 			this.receiveCommand(command);
 		}
@@ -71,7 +70,6 @@ var SquareGameClient = (function() {
 			case 'STOP_MOVING_PLAYER': action = this._receiveStopMovingPlayerCommand(command.dir); break;
 			case 'SPAWN_PLAYER': action = this._receiveSpawnPlayerCommand(); break;
 		}
-		if(debug) console.log("action:", action);
 		if(action !== null) {
 			this._networkHandler.sendCommand(command);
 			if(action.predictable !== false) {
@@ -99,13 +97,11 @@ var SquareGameClient = (function() {
 	};
 	SquareGameClientController.prototype.receiveAction = function(action) {
 		this._game.receiveAction(action);
-		if(debug) console.log("action:", action);
 		if(action.type === 'SPAWN_ENTITY' && action.isOwner) {
 			this._playerEntityId = action.entityId;
 		}
 	};
 	SquareGameClientController.prototype.receiveState = function(state) {
-		if(debug) console.log("state:", state);
 		this._game.setState(state);
 	};
 
@@ -114,30 +110,53 @@ var SquareGameClient = (function() {
 	function SquareGameClientNetworkHandler() {
 		var self = this;
 		this._controller = null;
+		this._ping = null;
+		this._lastPing = { id: null, time: null };
 		this._socket = io.connect();
-		this._socket.on('action', function(data) {
+		this._socket.on('ACTION', function(data) {
 			self.receiveAction(data.action);
 		});
-		this._socket.on('state', function(data) {
+		this._socket.on('STATE', function(data) {
 			self.receiveState(data.state);
 		});
-		if(debug) console.log("--> joining");
-		this._socket.emit('joining');
+		this._socket.on('PING_REQUEST', function(data) {
+			self.receivePingRequest(data.id);
+		});
+		this._socket.on('PING_RESPONSE', function(data) {
+			self.receivePingResponse(data.id, data.ping);
+		});
+		this._socket.emit('JOINING');
 	}
 	SquareGameClientNetworkHandler.prototype.setController = function(controller) {
 		this._controller = controller;
 	};
 	SquareGameClientNetworkHandler.prototype.sendCommand = function(command) {
-		if(debug) console.log("--> command:", command);
-		this._socket.emit('command', { command: command });
+		this._socket.emit('COMMAND', { command: command });
 	};
 	SquareGameClientNetworkHandler.prototype.receiveAction = function(action) {
-		if(debug) console.log("<-- action:", action);
 		this._controller.receiveAction(action);
 	};
 	SquareGameClientNetworkHandler.prototype.receiveState = function(state) {
-		if(debug) console.log("<-- state:", state);
 		this._controller.receiveState(state);
+	};
+	SquareGameClientNetworkHandler.prototype.receivePingRequest = function(id) {
+		this._lastPing = { id: id, time: Date.now() };
+		this._socket.emit('PING', { id: id, ping: this._ping });
+	};
+	SquareGameClientNetworkHandler.prototype.receivePingResponse = function(id, ping) {
+		if(this._lastPing.id === id) {
+			this._updatePing(Date.now() - this._lastPing.time);
+			this._lastPing = { id: null, time: null };
+			if(debug) console.log("Ping: " + Math.round(this._ping) + "ms");
+		}
+	};
+	SquareGameClientNetworkHandler.prototype._updatePing = function(ping) {
+		if(this._ping === null) {
+			this._ping = ping;
+		}
+		else {
+			this._ping = (3 * this._ping + ping) / 4;
+		}
 	};
 
 
@@ -159,9 +178,13 @@ var SquareGameClient = (function() {
 	};
 	SquareGameRenderer.prototype.render = function() {
 		var self = this;
+		var state = this._game.getState();
 		this._clearRenderArea();
-		this._game.getState().entities.forEach(function(entity) {
+		state.entities.forEach(function(entity) {
 			self._drawSquare(entity.color, entity.x, entity.y);
+		});
+		state.shadows.forEach(function(shadow) {
+			self._drawShadow(shadow.color, shadow.x, shadow.y);
 		});
 	};
 	SquareGameRenderer.prototype._clearRenderArea = function() {
@@ -170,6 +193,11 @@ var SquareGameClient = (function() {
 	SquareGameRenderer.prototype._drawSquare = function(color, x, y) {
 		$('<div style="position:absolute;width:25px;height:25px;"></div>')
 			.css('left', x + 'px').css('top', y + 'px').css('background-color', (color || 'black'))
+			.appendTo(this._root);
+	};
+	SquareGameRenderer.prototype._drawShadow = function(color, x, y) {
+		$('<div style="position:absolute;width:25px;height:25px;border:2px solid ' + (color || 'black') + ';"></div>')
+			.css('left', (x - 2) + 'px').css('top', (y - 2) + 'px')
 			.appendTo(this._root);
 	};
 	SquareGameRenderer.prototype.addInputListener = function(inputListener) {
@@ -196,7 +224,6 @@ var SquareGameClient = (function() {
 	}
 	KeyboardInputListener.prototype.receiveInput = function(input) {
 		var control = this._controlMapping.receiveInput(input);
-		if(debug) console.log("control:", control);
 		if(control !== null) {
 			this._controller.receiveControl(control);
 		}
@@ -209,19 +236,19 @@ var SquareGameClient = (function() {
 		if(input.device === 'keyboard') {
 			if(input.type === 'press') {
 				switch(input.key) {
-					case 87: return { type: 'BEGIN_MOVE', dir: 'up' };
-					case 65: return { type: 'BEGIN_MOVE', dir: 'left' };
-					case 83: return { type: 'BEGIN_MOVE', dir: 'down' };
-					case 68: return { type: 'BEGIN_MOVE', dir: 'right' };
+					case 87: return { type: 'BEGIN_MOVE', dir: 'UP' };
+					case 65: return { type: 'BEGIN_MOVE', dir: 'LEFT' };
+					case 83: return { type: 'BEGIN_MOVE', dir: 'DOWN' };
+					case 68: return { type: 'BEGIN_MOVE', dir: 'RIGHT' };
 					case 13: return { type: 'CONFIRM' };
 				}
 			}
 			else if(input.type === 'release') {
 				switch(input.key) {
-					case 87: return { type: 'END_MOVE', dir: 'up' };
-					case 65: return { type: 'END_MOVE', dir: 'left' };
-					case 83: return { type: 'END_MOVE', dir: 'down' };
-					case 68: return { type: 'END_MOVE', dir: 'right' };
+					case 87: return { type: 'END_MOVE', dir: 'UP' };
+					case 65: return { type: 'END_MOVE', dir: 'LEFT' };
+					case 83: return { type: 'END_MOVE', dir: 'DOWN' };
+					case 68: return { type: 'END_MOVE', dir: 'RIGHT' };
 				}
 			}
 		}

@@ -28,7 +28,7 @@ app.use(express.session({
 }));
 
 //app.io.route('chat-join', chat.onJoin);
-app.io.route('joining', function(req) {
+app.io.route('JOINING', function(req) {
 	game.onConnected(req);
 });
 app.get('/', router.renderIndex);
