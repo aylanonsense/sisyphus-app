@@ -130,9 +130,9 @@ var SquareGameClient = (function() {
 	SquareGameClientNetworkHandler.prototype.getPing = function() {
 		switch(this._pings.length) {
 			case 1: return Math.floor(1.00 * this._pings[0]);
-			case 2: return Math.floor(0.67 * this._pings[0] + 0.33 * this._pings[1]);
-			case 3: return Math.floor(0.54 * this._pings[0] + 0.27 * this._pings[1] + 0.19 * this._pings[2]);
-			case 4: return Math.floor(0.50 * this._pings[0] + 0.25 * this._pings[1] + 0.15 * this._pings[2] + 0.10 * this._pings[3]);
+			case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
+			case 3: return Math.floor(0.54 * this._pings[2] + 0.27 * this._pings[1] + 0.19 * this._pings[0]);
+			case 4: return Math.floor(0.50 * this._pings[3] + 0.25 * this._pings[2] + 0.15 * this._pings[1] + 0.10 * this._pings[0]);
 		}
 		return 0;
 	};
