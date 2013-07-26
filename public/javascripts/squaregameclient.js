@@ -110,7 +110,7 @@ var SquareGameClient = (function() {
 	function SquareGameClientNetworkHandler() {
 		var self = this;
 		this._controller = null;
-		this._ping = null;
+		this._pings = [];
 		this._lastPing = { id: null, time: null };
 		this._socket = io.connect();
 		this._socket.on('ACTION', function(data) {
@@ -127,6 +127,15 @@ var SquareGameClient = (function() {
 		});
 		this._socket.emit('JOINING');
 	}
+	SquareGameClientNetworkHandler.prototype.getPing = function() {
+		switch(this._pings.length) {
+			case 1: return Math.floor(1.00 * this._pings[0]);
+			case 2: return Math.floor(0.67 * this._pings[0] + 0.33 * this._pings[1]);
+			case 3: return Math.floor(0.54 * this._pings[0] + 0.27 * this._pings[1] + 0.19 * this._pings[2]);
+			case 4: return Math.floor(0.50 * this._pings[0] + 0.25 * this._pings[1] + 0.15 * this._pings[2] + 0.10 * this._pings[3]);
+		}
+		return 0;
+	};
 	SquareGameClientNetworkHandler.prototype.setController = function(controller) {
 		this._controller = controller;
 	};
@@ -147,15 +156,13 @@ var SquareGameClient = (function() {
 		if(this._lastPing.id === id) {
 			this._updatePing(Date.now() - this._lastPing.time);
 			this._lastPing = { id: null, time: null };
-			if(debug) console.log("Ping: " + Math.round(this._ping) + "ms");
+			if(debug) console.log("Ping: " + Math.round(this.getPing()) + "ms (", this._pings, ")");
 		}
 	};
 	SquareGameClientNetworkHandler.prototype._updatePing = function(ping) {
-		if(this._ping === null) {
-			this._ping = ping;
-		}
-		else {
-			this._ping = (3 * this._ping + ping) / 4;
+		this._pings.push(ping);
+		if(this._pings.length > 4) {
+			this._pings.shift();
 		}
 	};
 

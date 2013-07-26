@@ -213,7 +213,7 @@ SquareGameServerNetworkHandler.prototype.sendPingRequestToAll = function() {
 function RemotePlayer(id, conn) {
 	this._id = id;
 	this._conn = conn;
-	this._ping = null;
+	this._pings = [];
 	this._lastPing = { id: null, time: null };
 	this._nextPingId = 0;
 }
@@ -224,7 +224,13 @@ RemotePlayer.prototype.getConnection = function() {
 	return this._conn;
 };
 RemotePlayer.prototype.getPing = function() {
-	return this._ping;
+	switch(this._pings.length) {
+		case 1: return Math.floor(1.00 * this._pings[0]);
+		case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
+		case 3: return Math.floor(0.54 * this._pings[2] + 0.27 * this._pings[1] + 0.19 * this._pings[0]);
+		case 4: return Math.floor(0.50 * this._pings[3] + 0.25 * this._pings[2] + 0.15 * this._pings[1] + 0.10 * this._pings[0]);
+	}
+	return 0;
 };
 RemotePlayer.prototype.startPingTimer = function() {
 	var pingId = this._nextPingId++;
@@ -238,11 +244,9 @@ RemotePlayer.prototype.stopPingTimer = function(id) {
 	}
 };
 RemotePlayer.prototype._updatePing = function(ping) {
-	if(this._ping === null) {
-		this._ping = ping;
-	}
-	else {
-		this._ping = (3 * this._ping + ping) / 4;
+	this._pings.push(ping);
+	if(this._pings.length > 4) {
+		this._pings.shift();
 	}
 };
 
