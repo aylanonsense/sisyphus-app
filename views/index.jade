@@ -1,14 +1,9 @@
 extends layout
 
 block scripts
-  script(type='text/javascript', src='/javascripts/chatclient.js')
   script(type='text/javascript', src='/javascripts/squaregame.js')
   script(type='text/javascript', src='/javascripts/squaregameclient.js')
 
 block content
-  h1 Sisyphus v0.0.19
-  ol#chat
-  p Talk:
-    input#talk(type='text')
+  h1 Sisyphus
   #square-game-area
-  #game-area(style='position:relative;border:5px solid black;')
