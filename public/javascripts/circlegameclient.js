@@ -218,9 +218,10 @@ var CircleGameClient = (function() {
 		var self = this;
 
 		//flush vars
+		this._maxDelayBeforeSending = (params.maxDelayBeforeSending || 250);
 		this._maxMessagesPer1000ms = (params.maxMessagesPerSecond || 10);
-		this._maxMessagesPer500ms = Math.ceil(this._maxMessagesPer1000ms * 3/4);
-		this._maxMessagesPer250ms = Math.ceil(this._maxMessagesPer1000ms * 9/16);
+		this._maxMessagesPer500ms = Math.ceil(this._maxMessagesPer1000ms * 0.67);
+		this._maxMessagesPer250ms = Math.ceil(this._maxMessagesPer1000ms * 0.50);
 		this._flushHistory = [];
 		this._unsentMessages = [];
 		this._flushTimer = null;
@@ -267,6 +268,9 @@ var CircleGameClient = (function() {
 			var self = this;
 			var now = Date.now();
 			var nextFlushTime = this._getNextAvailableFlushTime(now);
+			if(nextFlushTime > now + this._maxDelayBeforeSending) {
+				nextFlushTime = now + this._maxDelayBeforeSending;
+			}
 			if(nextFlushTime <= now) {
 				this._flush();
 			}
