@@ -214,16 +214,30 @@ var CircleGameClient = (function() {
 
 
 
-	function ClientConnection() {
+	function Connection() {
+		var self = this;
 		this._ping = 0;
 		this._pings = [];
 		this._lastPingId = null;
 		this._lastPingTime = null;
-		this._socket = null;
-		this._socketHandlers = [];
-		this._unsentMessages = [];
+		this._socket = io.connect();
+		this._socket.on('PING_REQUEST', function(message) {
+			self._lastPingId = message.id;
+			self._lastPingTime = Date.now();
+			self.send('PING', { id: id, ping: self.getPing() });
+		});
+		this._socket.on('PING_RESPONSE', function(message) {
+			if(self._lastPingId === message.id) {
+				self._pings.push(Date.now() - self._lastPingTime);
+				if(self._pings.length > 4) {
+					self._pings.shift();
+				}
+				self._lastPingId = null;
+				self._lastPingTime = null;
+			}
+		});
 	}
-	ClientConnection.prototype.getPing = function() {
+	Connection.prototype.getPing = function() {
 		switch(this._pings.length) {
 			case 1: return Math.floor(1.00 * this._pings[0]);
 			case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
@@ -232,50 +246,11 @@ var CircleGameClient = (function() {
 		}
 		return 0;
 	};
-	ClientConnection.prototype.isConnected = function() {
-		return this._socket !== null;
+	Connection.prototype.send = function(messageType, message) {
+		this._socket.emit(messageType, message);
 	};
-	ClientConnection.prototype.connect = function() {
-		var self = this;
-		if(this._socket === null) {
-			this._socket = io.connect();
-			this._socket.on('PING_REQUEST', function(message) {
-				self._lastPingId = message.id;
-				self._lastPingTime = Date.now();
-				self.send('PING', { id: id, ping: self.getPing() });
-			});
-			this._socket.on('PING_RESPONSE', function(message) {
-				if(self._lastPing.id === message.id) {
-					self._pings.push(Date.now() - self._lastPing.time);
-					if(self._pings.length > 4) {
-						self._pings.shift();
-					}
-					self._lastPingId = null;
-					self._lastPingTime = null;
-				}
-			});
-			this.send('JOIN_GAME');
-			this._unsentMessages.forEach(function(message) {
-				self.send(message.type, message.content);
-			});
-			this._socketHandlers.forEach(function(handler) {
-				self._socket.on(handler.type, handler.callback);
-			});
-		}
-	};
-	ClientConnection.prototype.send = function(messageType, message) {
-		if(this.isConnected()) {
-			this._socket.emit(messageType, message);
-		}
-		else {
-			this._unsentMessages.push({ type: messageType, content: message });
-		}
-	};
-	ClientConnection.prototype.on = function(messageType, callback) {
-		this._socketHandlers.push({ type: messageType, callback: callback });
-		if(this.isConnected()) {
-			this._socket.on(messageType, callback);
-		}
+	Connection.prototype.on = function(messageType, callback) {
+		this._socket.on(messageType, callback);
 	};
 
 
