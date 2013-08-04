@@ -7,15 +7,16 @@ var config = require('./config/config');
 var router = require('./router');
 //var auth = require('./authrouter');
 //var models = require('./models');
-var SquareGameServer = require('./squaregameserver');
-var app, game;
+var CircleGameServer = require('./circlegameserver');
+var app;
+var game;
 
 app = express();
 app.http().io();
 
 //mongoose.connect(config.db.uri);
 
-game = new SquareGameServer();
+game = new CircleGameServer();
 
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());
@@ -26,7 +27,7 @@ app.use(express.cookieParser());
 	secret: config.session.secret
 }));*/
 
-app.io.route('JOINING', function(req) {
+app.io.route('JOIN_GAME', function(req) {
 	game.onConnected(req);
 });
 app.get('/', router.renderIndex);
