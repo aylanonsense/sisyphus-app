@@ -155,7 +155,7 @@ function Connection(id, socket) {
 			self._lastPingId = null;
 			self._lastPingTime = null;
 		}
-		self.send('PING_RESPONSE', { id: message.id, ping: self.getPing() });
+		self._socket.io.emit('PING_RESPONSE', { id: message.id, ping: self.getPing() });
 	});
 }
 Connection.prototype.getId = function() {
@@ -170,19 +170,21 @@ Connection.prototype.getPing = function() {
 	}
 	return 0;
 };
-Connection.prototype.send = function(messageType, message) {
-	this._socket.io.emit(messageType, message);
-};
-Connection.prototype.sendToRoom = function(messageType, message, room) {
-	this._socket.io.room(room).broadcast(messageType, message);
-};
 Connection.prototype.ping = function() {
 	this._lastPingId = this._nextPingId++;
 	this._lastPingTime = Date.now();
-	this.send('PING_REQUEST', { id: this._lastPingId });
+	this._socket.io.emit('PING_REQUEST', { id: this._lastPingId });
 };
-Connection.prototype.on = function(messageType, callback) {
-	this._socket.on(messageType, callback);
+Connection.prototype.send = function(message) {
+	//this._socket.io.emit('GAME_MESSAGES', message);
+};
+Connection.prototype.sendToRoom = function(message, room) {
+	this._socket.io.room(room).broadcast(messageType, message);
+};
+Connection.prototype.onReceive = function(callback) {
+	this._socket.on('GAME_MESSAGES', function(messages) {
+		messages.forEach(callback);
+	});
 };
 
 
