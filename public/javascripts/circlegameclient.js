@@ -1,6 +1,10 @@
 var CircleGameClient = (function() {
 
-
+	/*
+		ClientNetworkHandler
+			send(message)
+			onReceive(callback(message))
+	*/
 
 	function GameRunner(params) {
 		this._game = new CircleGame({ maxRewind: params.maxRewind });

@@ -1,7 +1,16 @@
 var GameLib = require('./public/javascripts/gamecommon');
 var CircleGame = require('./public/javascripts/circlegame');
 
-
+/*
+	ServerNetworkHandler
+		addConnection(conn)
+		send(playerId, message)
+		sendToAll(message)
+		sendToAllExcept(playerId, message)
+		onConnect(callback(playerId))
+		onDisconnect(callback(playerId))
+		onReceive(callback(playerId, message))
+*/
 
 function ServerRunner() {
 	this._game = new CircleGame({
