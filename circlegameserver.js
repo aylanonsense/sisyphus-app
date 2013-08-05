@@ -143,6 +143,7 @@ function ServerNetworkHandler() {
 	this._nextPlayerId = 1;
 	this._players = {};
 	this._playerIds = [];
+	this._receiveCallbacks = [];
 }
 ServerNetworkHandler.prototype.onConnected = function(conn) {
 	var self = this;
@@ -155,7 +156,9 @@ ServerNetworkHandler.prototype.onConnected = function(conn) {
 		maxDelayBeforeSending: 100
 	});
 	this._players[playerId].onReceive(function(message) {
-		//TODO hand off to receiver
+		self._receiveCallbacks.forEach(function(callback) {
+			callback(playerId, message);
+		});
 	});
 	this.players[playerId].onDisconnect(function() {
 		self._removePlayer(playerId);
@@ -172,7 +175,7 @@ ServerNetworkHandler.prototype._removePlayer = function(playerId) {
 	delete this._players[playerId];
 	console.log("Player " + playerId + " left");
 };
-ServerNetworkHandler.prototype.send = function(message, playerId) {
+ServerNetworkHandler.prototype.send = function(playerId, message) {
 	this._players[playerId].send(message);
 };
 ServerNetworkHandler.prototype.sendToAll = function(message) {
@@ -180,12 +183,15 @@ ServerNetworkHandler.prototype.sendToAll = function(message) {
 		this._players[this._playerIds[i]].send(message);
 	}
 };
-ServerNetworkHandler.prototype.sendToAllExcept = function(message, playerId) {
+ServerNetworkHandler.prototype.sendToAllExcept = function(playerId, message) {
 	for(var i = 0; i < this._playerIds.length; i++) {
 		if(this._playerids[i] !== playerId) {
 			this._players[this._playerIds[i]].send(message);
 		}
 	}
+};
+ServerNetworkHandler.prototype.onReceive = function(callback) {
+	this._receiveCallbacks.push(callback);
 };
 
 

@@ -80,11 +80,13 @@ var GameLib = (function() {
 		}
 	};
 	Connection.prototype.flush = function() {
-		var now = Date.now();
-		self._socket.send('GAME_MESSAGES', this._unsentMessages);
-		this._unsentMessages = [];
-		this._flushHistory.push(now);
-		this._cleanFlushHistory(now);
+		if(this._unsentMessages.length > 0) {
+			var now = Date.now();
+			self._socket.send('GAME_MESSAGES', this._unsentMessages);
+			this._unsentMessages = [];
+			this._flushHistory.push(now);
+			this._cleanFlushHistory(now);
+		}
 	};
 	Connection.prototype._getNextAvailableFlushTime = function(now) {
 		var numFlushesInLast250ms = 0;

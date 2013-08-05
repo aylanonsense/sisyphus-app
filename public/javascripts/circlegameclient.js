@@ -215,17 +215,24 @@ var CircleGameClient = (function() {
 
 
 	function ClientNetworkHandler() {
+		var self = this;
 		this._conn = new GameLib.Connection({
 			socket: new Socket(),
 			maxMessagesSentPerSecond: 10,
 			maxDelayBeforeSending: 100
 		});
+		this._receiveCallbacks = [];
 		this._conn.onReceive(function(message) {
-			//TODO hand off to receiver
+			self._receiveCallbacks.forEach(function(callback) {
+				callback(message);
+			});
 		});
 	}
 	ClientNetworkHandler.prototype.send = function(message) {
 		this._conn.send(message);
+	};
+	ClientNetworkHandler.prototype.onReceive = function(callback) {
+		this._receiveCallbacks.push(callback);
 	};
 
 
@@ -239,6 +246,7 @@ var CircleGameClient = (function() {
 	Socket.prototype.on = function(messageType, callback) {
 		this._socket.on(messageType, callback);
 	};
+
 
 
 	return GameRunner;
