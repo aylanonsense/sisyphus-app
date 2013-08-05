@@ -41,48 +41,6 @@ ServerRunner.prototype.onConnected = function(conn) {
 
 
 
-function ServerNetworkConnection(id, conn) {
-	this._id = id;
-	this._conn = conn;
-	this._pings = [];
-	this._lastPing = { id: null, time: null };
-	this._nextPingId = 0;
-}
-ServerNetworkConnection.prototype.getId = function() {
-	return this._id;
-};
-ServerNetworkConnection.prototype.getConnection = function() {
-	return this._conn;
-};
-ServerNetworkConnection.prototype.getPing = function() {
-	switch(this._pings.length) {
-		case 1: return Math.floor(1.00 * this._pings[0]);
-		case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
-		case 3: return Math.floor(0.54 * this._pings[2] + 0.27 * this._pings[1] + 0.19 * this._pings[0]);
-		case 4: return Math.floor(0.50 * this._pings[3] + 0.25 * this._pings[2] + 0.15 * this._pings[1] + 0.10 * this._pings[0]);
-	}
-	return 0;
-};
-ServerNetworkConnection.prototype.startPingTimer = function() {
-	var pingId = this._nextPingId++;
-	this._lastPing = { id: pingId, time: Date.now() };
-	return pingId;
-};
-ServerNetworkConnection.prototype.stopPingTimer = function(id) {
-	if(id === this._lastPing.id) {
-		this._updatePing(Date.now() - this._lastPing.time);
-		this._lastPing = { id: null, time: null };
-	}
-};
-ServerNetworkConnection.prototype._updatePing = function(ping) {
-	this._pings.push(ping);
-	if(this._pings.length > 4) {
-		this._pings.shift();
-	}
-};
-
-
-
 function ServerNetworkHandler() {
 	this._nextPlayerId = 1;
 	this._players = {};
