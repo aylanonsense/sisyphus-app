@@ -8,7 +8,7 @@ function ServerRunner() {
 		maxRewind: 500,
 		stateStorageFreq: 250
 	});
-	this._networkHandler = new OldServerNetworkHandler();
+	this._networkHandler = new ServerNetworkHandler();
 	/*this._controller = new SquareGameServerController(this._game, this._networkHandler);
 	this._networkHandler.setController(this._controller);*/
 	this._timer = null;
@@ -37,62 +37,6 @@ ServerRunner.prototype.stop = function() {
 };
 ServerRunner.prototype.onConnected = function(conn) {
 	this._networkHandler.onConnected(conn);
-};
-
-
-
-function OldServerNetworkHandler() {
-	this._nextPlayerId = 1;
-	this._players = [];
-	this._room = 'CIRCLE_GAME_' + (OldServerNetworkHandler.prototype.NEXT_GAME_ID++);
-}
-OldServerNetworkHandler.prototype.NEXT_GAME_ID = 1;
-OldServerNetworkHandler.prototype._getPlayer = function(playerId) {
-	for(var i = 0; i < this._players.length; i++) {
-		if(this._players[i].getId() === playerId) {
-			return this._players[i];
-		}
-	}
-	return null;
-};
-OldServerNetworkHandler.prototype._removeConnection = function(playerId) {
-	for(var i = 0; i < this._players.length; i++) {
-		if(this._players[i].getId() === playerId) {
-			this._players[i].getConnection().io.leave(this._room);
-			this._players.splice(i, 1);
-			return;
-		}
-	}
-};
-OldServerNetworkHandler.prototype.onConnected = function(conn) {
-	var self = this;
-	var playerId = this._nextPlayerId++;
-	console.log("Player " + playerId + " joined");
-	this._players.push(new ServerNetworkConnection(playerId, conn));
-	conn.io.join(this._room);
-	conn.socket.on('PING', function(data) {
-		self._receivePing(data.id, data.ping, playerId);
-	});
-	conn.socket.on('disconnect', function() {
-		self._removeConnection(playerId);
-	});
-};
-OldServerNetworkHandler.prototype._receivePing = function(id, ping, playerId) {
-	var player = this._getPlayer(playerId);
-	player.stopPingTimer(id);
-	player.getConnection().io.emit('PING_RESPONSE', { id: id, ping: player.getPing() });
-};
-OldServerNetworkHandler.prototype.send = function(messageType, message, playerId) {
-	this._getPlayer(playerId).getConnection().io.emit(messageType, message);
-};
-OldServerNetworkHandler.prototype.sendToAll = function(messageType, message) {
-	if(this._players.length > 0) {
-		this._players[0].getConnection().io.emit(messageType, message);
-		this._players[0].getConnection().io.room(this._room).broadcast(messageType, message);
-	}
-};
-OldServerNetworkHandler.prototype.sendToAllExcept = function(messageType, message, playerId) {
-	this._getPlayer(playerId).getConnection().io.room(this._room).broadcast(messageType, message);
 };
 
 
@@ -160,7 +104,7 @@ ServerNetworkHandler.prototype.onConnected = function(conn) {
 			callback(playerId, message);
 		});
 	});
-	this.players[playerId].onDisconnect(function() {
+	this._players[playerId].onDisconnect(function() {
 		self._removePlayer(playerId);
 	});
 	console.log("Player " + playerId + " joined");

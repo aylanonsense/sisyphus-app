@@ -9,7 +9,7 @@ var CircleGameClient = (function() {
 		this._renderer = new GameRenderer(this._game);
 		this._renderer.renderIn(params.renderTarget);
 		this._renderer.addInputListener(this._inputListener);
-		this._networkHandler = new OldClientNetworkHandler();
+		this._networkHandler = new ClientNetworkHandler();
 		this._timer = null;
 	}
 	GameRunner.prototype.start = function() {
@@ -42,50 +42,6 @@ var CircleGameClient = (function() {
 	};
 	GameRunner.prototype.sendCommand = function(command) {
 		this._networkHandler.send('COMMAND', command);
-	};
-
-
-
-	function OldClientNetworkHandler() {
-		var self = this;
-		this._pings = [];
-		this._lastPing = { id: null, time: null };
-		this._socket = io.connect();
-		this._socket.on('PING_REQUEST', function(message) {
-			self._receivePingRequest(message.id);
-		});
-		this._socket.on('PING_RESPONSE', function(message) {
-			self._receivePingResponse(message.id, message.ping);
-		});
-		this._socket.emit('JOIN_GAME');
-	}
-	OldClientNetworkHandler.prototype.getPing = function() {
-		switch(this._pings.length) {
-			case 1: return Math.floor(1.00 * this._pings[0]);
-			case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
-			case 3: return Math.floor(0.54 * this._pings[2] + 0.27 * this._pings[1] + 0.19 * this._pings[0]);
-			case 4: return Math.floor(0.50 * this._pings[3] + 0.25 * this._pings[2] + 0.15 * this._pings[1] + 0.10 * this._pings[0]);
-		}
-		return 0;
-	};
-	OldClientNetworkHandler.prototype._updatePing = function(ping) {
-		this._pings.push(ping);
-		if(this._pings.length > 4) {
-			this._pings.shift();
-		}
-	};
-	OldClientNetworkHandler.prototype.send = function(message, messageType) {
-		this._socket.emit(message, messageType);
-	};
-	OldClientNetworkHandler.prototype._receivePingRequest = function(id) {
-		this._lastPing = { id: id, time: Date.now() };
-		this._socket.emit('PING', { id: id, ping: this.getPing() });
-	};
-	OldClientNetworkHandler.prototype._receivePingResponse = function(id, ping) {
-		if(this._lastPing.id === id) {
-			this._updatePing(Date.now() - this._lastPing.time);
-			this._lastPing = { id: null, time: null };
-		}
 	};
 
 
@@ -218,8 +174,7 @@ var CircleGameClient = (function() {
 		var self = this;
 		this._conn = new GameLib.Connection({
 			socket: new Socket(),
-			maxMessagesSentPerSecond: 10,
-			maxDelayBeforeSending: 100
+			maxMessagesSentPerSecond: 10
 		});
 		this._receiveCallbacks = [];
 		this._conn.onReceive(function(message) {
@@ -227,6 +182,10 @@ var CircleGameClient = (function() {
 				callback(message);
 			});
 		});
+		var i = 0;
+		setInterval(function() {
+			self.send("i = " + i++);
+		}, 10);
 	}
 	ClientNetworkHandler.prototype.send = function(message) {
 		this._conn.send(message);
@@ -239,6 +198,7 @@ var CircleGameClient = (function() {
 
 	function Socket() {
 		this._socket = io.connect();
+		this._socket.emit('JOIN_GAME');
 	}
 	Socket.prototype.emit = function(messageType, message) {
 		this._socket.emit(messageType, message);

@@ -3,10 +3,8 @@ var GameLib = (function() {
 		var self = this;
 
 		//flush vars
-		this._maxDelayBeforeSending = (params.maxDelayBeforeSending || 250);
-		this._maxMessagesSentPer1000ms = (params.maxMessagesSentPerSecond || 10);
-		this._maxMessagesSentPer500ms = Math.ceil(this._maxMessagesSentPer1000ms * 0.67);
-		this._maxMessagesSentPer250ms = Math.ceil(this._maxMessagesSentPer1000ms * 0.50);
+		var maxMessagesSentPerSecond = (params.maxMessagesSentPerSecond || 10);
+		this._flushInterval = Math.floor(1000 / maxMessagesSentPerSecond);
 		this._flushHistory = [];
 		this._unsentMessages = [];
 		this._flushTimer = null;
@@ -65,16 +63,13 @@ var GameLib = (function() {
 			var self = this;
 			var now = Date.now();
 			var nextFlushTime = this._getNextAvailableFlushTime(now);
-			if(nextFlushTime > now + this._maxDelayBeforeSending) {
-				nextFlushTime = now + this._maxDelayBeforeSending;
-			}
 			if(nextFlushTime <= now) {
-				this._flush();
+				this.flush();
 			}
 			else {
 				this._flushTimer = setTimeout(function() {
 					self._flushTimer = null;
-					self._flush();
+					self.flush();
 				}, Math.max(10, nextFlushTime - now));
 			}
 		}
@@ -82,46 +77,17 @@ var GameLib = (function() {
 	Connection.prototype.flush = function() {
 		if(this._unsentMessages.length > 0) {
 			var now = Date.now();
-			self._socket.send('GAME_MESSAGES', this._unsentMessages);
+			this._socket.emit('GAME_MESSAGES', this._unsentMessages);
 			this._unsentMessages = [];
 			this._flushHistory.push(now);
 			this._cleanFlushHistory(now);
 		}
 	};
 	Connection.prototype._getNextAvailableFlushTime = function(now) {
-		var numFlushesInLast250ms = 0;
-		var numFlushesInLast500ms = 0;
-		var numFlushesInLast1000ms = 0;
-		var flushTimeToAvoid250msRestriction = null;
-		var flushTimeToAvoid500msRestriction = null;
-		var flushTimeToAvoid1000msRestriction = null;
-		for(var i = this._flushHistory.length - 1; i >= 0; i--) {
-			if(this._flushHistory[i] + 250 > now) {
-				numFlushesInLast250ms += 1;
-				if(numFlushesInLast250ms >= this._maxMessagesSentPer250ms &&
-					flushTimeToAvoid250msRestriction === null) {
-					flushTimeToAvoid250msRestriction = this._flushHistory[i] + 250;
-				}
-			}
-			if(this._flushHistory[i] + 500 > now) {
-				numFlushesInLast500ms += 1;
-				if(numFlushesInLast500ms >= this._maxMessagesSentPer500ms &&
-					flushTimeToAvoid500msRestriction === null) {
-					flushTimeToAvoid500msRestriction = this._flushHistory[i] + 500;
-				}
-			}
-			if(this._flushHistory[i] + 1000 > now) {
-				numFlushesInLast1000ms += 1;
-				if(numFlushesInLast1000ms >= this._maxMessagesSentPer1000ms &&
-					flushTimeToAvoid1000msRestriction === null) {
-					flushTimeToAvoid1000msRestriction = this._flushHistory[i] + 1000;
-				}
-			}
+		if(this._flushHistory.length === 0) {
+			return now;
 		}
-		return Math.max(now,
-			flushTimeToAvoid250msRestriction,
-			flushTimeToAvoid500msRestriction,
-			flushTimeToAvoid1000msRestriction);
+		return Math.max(now, this._flushHistory[this._flushHistory.length - 1] + this._flushInterval);
 	};
 	Connection.prototype._cleanFlushHistory = function(now) {
 		for(var i = 0; i < this._flushHistory.length; i++) {
@@ -135,6 +101,7 @@ var GameLib = (function() {
 	};
 	Connection.prototype.onReceive = function(callback) {
 		this._socket.on('GAME_MESSAGES', function(messages) {
+			console.log("messages: " + messages.length);
 			messages.forEach(callback);
 		});
 	};
