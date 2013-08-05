@@ -9,6 +9,15 @@ function ServerRunner() {
 		stateStorageFreq: 250
 	});
 	this._networkHandler = new ServerNetworkHandler();
+	this._networkHandler.onConnect(function(playerId) {
+		console.log("Player " + playerId + " connected!");
+	});
+	this._networkHandler.onReceive(function(playerId, message) {
+		console.log("Player " + playerId + ": " + message);
+	});
+	this._networkHandler.onDisconnect(function(playerId) {
+		console.log("Player " + playerId + " disconnected!");
+	});
 	/*this._controller = new SquareGameServerController(this._game, this._networkHandler);
 	this._networkHandler.setController(this._controller);*/
 	this._timer = null;
@@ -36,7 +45,7 @@ ServerRunner.prototype.stop = function() {
 	}
 };
 ServerRunner.prototype.onConnected = function(conn) {
-	this._networkHandler.onConnected(conn);
+	this._networkHandler.addConnection(conn);
 };
 
 
@@ -45,9 +54,11 @@ function ServerNetworkHandler() {
 	this._nextPlayerId = 1;
 	this._players = {};
 	this._playerIds = [];
+	this._connectCallbacks = [];
+	this._disconnectCallbacks = [];
 	this._receiveCallbacks = [];
 }
-ServerNetworkHandler.prototype.onConnected = function(conn) {
+ServerNetworkHandler.prototype.addConnection = function(conn) {
 	var self = this;
 	var playerId = this._nextPlayerId++;
 	var socket = new Socket(conn);
@@ -64,8 +75,13 @@ ServerNetworkHandler.prototype.onConnected = function(conn) {
 	});
 	this._players[playerId].onDisconnect(function() {
 		self._removePlayer(playerId);
+		self._disconnectCallbacks.forEach(function(callback) {
+			callback(playerId);
+		});
 	});
-	console.log("Player " + playerId + " joined");
+	this._connectCallbacks.forEach(function(callback) {
+		callback(playerId);
+	});
 };
 ServerNetworkHandler.prototype._removePlayer = function(playerId) {
 	for(var i = 0; i < this._playerIds.length; i++) {
@@ -75,7 +91,6 @@ ServerNetworkHandler.prototype._removePlayer = function(playerId) {
 		}
 	}
 	delete this._players[playerId];
-	console.log("Player " + playerId + " left");
 };
 ServerNetworkHandler.prototype.send = function(playerId, message) {
 	this._players[playerId].send(message);
@@ -91,6 +106,12 @@ ServerNetworkHandler.prototype.sendToAllExcept = function(playerId, message) {
 			this._players[this._playerIds[i]].send(message);
 		}
 	}
+};
+ServerNetworkHandler.prototype.onConnect = function(callback) {
+	this._connectCallbacks.push(callback);
+};
+ServerNetworkHandler.prototype.onDisconnect = function(callback) {
+	this._disconnectCallbacks.push(callback);
 };
 ServerNetworkHandler.prototype.onReceive = function(callback) {
 	this._receiveCallbacks.push(callback);

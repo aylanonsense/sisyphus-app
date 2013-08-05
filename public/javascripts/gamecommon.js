@@ -101,7 +101,6 @@ var GameLib = (function() {
 	};
 	Connection.prototype.onReceive = function(callback) {
 		this._socket.on('GAME_MESSAGES', function(messages) {
-			console.log("messages: " + messages.length);
 			messages.forEach(callback);
 		});
 	};

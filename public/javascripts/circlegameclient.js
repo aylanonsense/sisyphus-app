@@ -182,6 +182,7 @@ var CircleGameClient = (function() {
 				callback(message);
 			});
 		});
+		this._conn.send("Hello!");
 	}
 	ClientNetworkHandler.prototype.send = function(message) {
 		this._conn.send(message);
