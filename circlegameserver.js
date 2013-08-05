@@ -1,3 +1,4 @@
+var GameLib = require('./public/javascripts/gamecommon');
 var CircleGame = require('./public/javascripts/circlegame');
 
 
@@ -138,53 +139,14 @@ ServerNetworkConnection.prototype._updatePing = function(ping) {
 
 
 
-function Connection(id, socket) {
-	var self = this;
-	this._id = id;
-	this._pings = [];
-	this._lastPingId = null;
-	this._lastPingTime = null;
-	this._nextPingId = 0;
+function Socket(socket) {
 	this._socket = socket;
-	this._socket.on('PING', function(message) {
-		if(self._lastPingId === message.id) {
-			self._pings.push(Date.now() - self._lastPingTime);
-			if(self._pings.length > 4) {
-				self._pings.shift();
-			}
-			self._lastPingId = null;
-			self._lastPingTime = null;
-		}
-		self._socket.io.emit('PING_RESPONSE', { id: message.id, ping: self.getPing() });
-	});
 }
-Connection.prototype.getId = function() {
-	return this._id;
+Socket.prototype.emit = function(messageType, message) {
+	this._socket.io.emit(messageType, message);
 };
-Connection.prototype.getPing = function() {
-	switch(this._pings.length) {
-		case 1: return Math.floor(1.00 * this._pings[0]);
-		case 2: return Math.floor(0.67 * this._pings[1] + 0.33 * this._pings[0]);
-		case 3: return Math.floor(0.54 * this._pings[2] + 0.27 * this._pings[1] + 0.19 * this._pings[0]);
-		case 4: return Math.floor(0.50 * this._pings[3] + 0.25 * this._pings[2] + 0.15 * this._pings[1] + 0.10 * this._pings[0]);
-	}
-	return 0;
-};
-Connection.prototype.ping = function() {
-	this._lastPingId = this._nextPingId++;
-	this._lastPingTime = Date.now();
-	this._socket.io.emit('PING_REQUEST', { id: this._lastPingId });
-};
-Connection.prototype.send = function(message) {
-	//this._socket.io.emit('GAME_MESSAGES', message);
-};
-Connection.prototype.sendToRoom = function(message, room) {
-	this._socket.io.room(room).broadcast(messageType, message);
-};
-Connection.prototype.onReceive = function(callback) {
-	this._socket.on('GAME_MESSAGES', function(messages) {
-		messages.forEach(callback);
-	});
+Socket.prototype.on = function(messageType, callback) {
+	this._socket.on(messageType, callback);
 };
 
 
