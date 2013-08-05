@@ -8,7 +8,7 @@ function ServerRunner() {
 		maxRewind: 500,
 		stateStorageFreq: 250
 	});
-	this._networkHandler = new ServerNetworkHandler();
+	this._networkHandler = new OldServerNetworkHandler();
 	/*this._controller = new SquareGameServerController(this._game, this._networkHandler);
 	this._networkHandler.setController(this._controller);*/
 	this._timer = null;
@@ -41,13 +41,13 @@ ServerRunner.prototype.onConnected = function(conn) {
 
 
 
-function ServerNetworkHandler() {
+function OldServerNetworkHandler() {
 	this._nextPlayerId = 1;
 	this._players = [];
-	this._room = 'CIRCLE_GAME_' + (ServerNetworkHandler.prototype.NEXT_GAME_ID++);
+	this._room = 'CIRCLE_GAME_' + (OldServerNetworkHandler.prototype.NEXT_GAME_ID++);
 }
-ServerNetworkHandler.prototype.NEXT_GAME_ID = 1;
-ServerNetworkHandler.prototype._getPlayer = function(playerId) {
+OldServerNetworkHandler.prototype.NEXT_GAME_ID = 1;
+OldServerNetworkHandler.prototype._getPlayer = function(playerId) {
 	for(var i = 0; i < this._players.length; i++) {
 		if(this._players[i].getId() === playerId) {
 			return this._players[i];
@@ -55,7 +55,7 @@ ServerNetworkHandler.prototype._getPlayer = function(playerId) {
 	}
 	return null;
 };
-ServerNetworkHandler.prototype._removeConnection = function(playerId) {
+OldServerNetworkHandler.prototype._removeConnection = function(playerId) {
 	for(var i = 0; i < this._players.length; i++) {
 		if(this._players[i].getId() === playerId) {
 			this._players[i].getConnection().io.leave(this._room);
@@ -64,7 +64,7 @@ ServerNetworkHandler.prototype._removeConnection = function(playerId) {
 		}
 	}
 };
-ServerNetworkHandler.prototype.onConnected = function(conn) {
+OldServerNetworkHandler.prototype.onConnected = function(conn) {
 	var self = this;
 	var playerId = this._nextPlayerId++;
 	console.log("Player " + playerId + " joined");
@@ -77,21 +77,21 @@ ServerNetworkHandler.prototype.onConnected = function(conn) {
 		self._removeConnection(playerId);
 	});
 };
-ServerNetworkHandler.prototype._receivePing = function(id, ping, playerId) {
+OldServerNetworkHandler.prototype._receivePing = function(id, ping, playerId) {
 	var player = this._getPlayer(playerId);
 	player.stopPingTimer(id);
 	player.getConnection().io.emit('PING_RESPONSE', { id: id, ping: player.getPing() });
 };
-ServerNetworkHandler.prototype.send = function(messageType, message, playerId) {
+OldServerNetworkHandler.prototype.send = function(messageType, message, playerId) {
 	this._getPlayer(playerId).getConnection().io.emit(messageType, message);
 };
-ServerNetworkHandler.prototype.sendToAll = function(messageType, message) {
+OldServerNetworkHandler.prototype.sendToAll = function(messageType, message) {
 	if(this._players.length > 0) {
 		this._players[0].getConnection().io.emit(messageType, message);
 		this._players[0].getConnection().io.room(this._room).broadcast(messageType, message);
 	}
 };
-ServerNetworkHandler.prototype.sendToAllExcept = function(messageType, message, playerId) {
+OldServerNetworkHandler.prototype.sendToAllExcept = function(messageType, message, playerId) {
 	this._getPlayer(playerId).getConnection().io.room(this._room).broadcast(messageType, message);
 };
 
@@ -139,14 +139,65 @@ ServerNetworkConnection.prototype._updatePing = function(ping) {
 
 
 
-function Socket(socket) {
-	this._socket = socket;
+function ServerNetworkHandler() {
+	this._nextPlayerId = 1;
+	this._players = {};
+	this._playerIds = [];
+}
+ServerNetworkHandler.prototype.onConnected = function(conn) {
+	var self = this;
+	var playerId = this._nextPlayerId++;
+	var socket = new Socket(conn);
+	this._playerIds.push(playerId);
+	this._players[playerId] = new GameLib.Connection({
+		socket: socket,
+		maxMessagesSentPerSecond: 10,
+		maxDelayBeforeSending: 100
+	});
+	this._players[playerId].onReceive(function(message) {
+		//TODO hand off to receiver
+	});
+	this.players[playerId].onDisconnect(function() {
+		self._removePlayer(playerId);
+	});
+	console.log("Player " + playerId + " joined");
+};
+ServerNetworkHandler.prototype._removePlayer = function(playerId) {
+	for(var i = 0; i < this._playerIds.length; i++) {
+		if(this._playerIds[i] === playerId) {
+			this._playerIds.splice(i, 1);
+			break;
+		}
+	}
+	delete this._players[playerId];
+	console.log("Player " + playerId + " left");
+};
+ServerNetworkHandler.prototype.send = function(message, playerId) {
+	this._players[playerId].send(message);
+};
+ServerNetworkHandler.prototype.sendToAll = function(message) {
+	for(var i = 0; i < this._playerIds.length; i++) {
+		this._players[this._playerIds[i]].send(message);
+	}
+};
+ServerNetworkHandler.prototype.sendToAllExcept = function(message, playerId) {
+	for(var i = 0; i < this._playerIds.length; i++) {
+		if(this._playerids[i] !== playerId) {
+			this._players[this._playerIds[i]].send(message);
+		}
+	}
+};
+
+
+
+function Socket(conn) {
+	this._conn = conn;
 }
 Socket.prototype.emit = function(messageType, message) {
-	this._socket.io.emit(messageType, message);
+	this._conn.io.emit(messageType, message);
 };
 Socket.prototype.on = function(messageType, callback) {
-	this._socket.on(messageType, callback);
+	this._conn.socket.on(messageType, callback);
 };
 
 

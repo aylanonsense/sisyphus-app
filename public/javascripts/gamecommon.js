@@ -4,9 +4,9 @@ var GameLib = (function() {
 
 		//flush vars
 		this._maxDelayBeforeSending = (params.maxDelayBeforeSending || 250);
-		this._maxMessagesPer1000ms = (params.maxMessagesPerSecond || 10);
-		this._maxMessagesPer500ms = Math.ceil(this._maxMessagesPer1000ms * 0.67);
-		this._maxMessagesPer250ms = Math.ceil(this._maxMessagesPer1000ms * 0.50);
+		this._maxMessagesSentPer1000ms = (params.maxMessagesSentPerSecond || 10);
+		this._maxMessagesSentPer500ms = Math.ceil(this._maxMessagesSentPer1000ms * 0.67);
+		this._maxMessagesSentPer250ms = Math.ceil(this._maxMessagesSentPer1000ms * 0.50);
 		this._flushHistory = [];
 		this._unsentMessages = [];
 		this._flushTimer = null;
@@ -79,7 +79,7 @@ var GameLib = (function() {
 			}
 		}
 	};
-	Connection.prototype._flush = function() {
+	Connection.prototype.flush = function() {
 		var now = Date.now();
 		self._socket.send('GAME_MESSAGES', this._unsentMessages);
 		this._unsentMessages = [];
@@ -96,21 +96,21 @@ var GameLib = (function() {
 		for(var i = this._flushHistory.length - 1; i >= 0; i--) {
 			if(this._flushHistory[i] + 250 > now) {
 				numFlushesInLast250ms += 1;
-				if(numFlushesInLast250ms >= this._maxMessagesPer250ms &&
+				if(numFlushesInLast250ms >= this._maxMessagesSentPer250ms &&
 					flushTimeToAvoid250msRestriction === null) {
 					flushTimeToAvoid250msRestriction = this._flushHistory[i] + 250;
 				}
 			}
 			if(this._flushHistory[i] + 500 > now) {
 				numFlushesInLast500ms += 1;
-				if(numFlushesInLast500ms >= this._maxMessagesPer500ms &&
+				if(numFlushesInLast500ms >= this._maxMessagesSentPer500ms &&
 					flushTimeToAvoid500msRestriction === null) {
 					flushTimeToAvoid500msRestriction = this._flushHistory[i] + 500;
 				}
 			}
 			if(this._flushHistory[i] + 1000 > now) {
 				numFlushesInLast1000ms += 1;
-				if(numFlushesInLast1000ms >= this._maxMessagesPer1000ms &&
+				if(numFlushesInLast1000ms >= this._maxMessagesSentPer1000ms &&
 					flushTimeToAvoid1000msRestriction === null) {
 					flushTimeToAvoid1000msRestriction = this._flushHistory[i] + 1000;
 				}
@@ -135,6 +135,9 @@ var GameLib = (function() {
 		this._socket.on('GAME_MESSAGES', function(messages) {
 			messages.forEach(callback);
 		});
+	};
+	Connection.prototype.onDisconnect = function(callback) {
+		this._socket.on('disconnect', callback);
 	};
 
 
