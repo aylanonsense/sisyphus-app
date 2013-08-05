@@ -182,10 +182,6 @@ var CircleGameClient = (function() {
 				callback(message);
 			});
 		});
-		var i = 0;
-		setInterval(function() {
-			self.send("i = " + i++);
-		}, 10);
 	}
 	ClientNetworkHandler.prototype.send = function(message) {
 		this._conn.send(message);
