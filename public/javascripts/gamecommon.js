@@ -92,7 +92,7 @@ var GameLib = (function() {
 		var numFlushesInLast1000ms = 0;
 		var flushTimeToAvoid250msRestriction = null;
 		var flushTimeToAvoid500msRestriction = null;
-		var flushTimeToAvoid1000msRestriction = null;`
+		var flushTimeToAvoid1000msRestriction = null;
 		for(var i = this._flushHistory.length - 1; i >= 0; i--) {
 			if(this._flushHistory[i] + 250 > now) {
 				numFlushesInLast250ms += 1;
