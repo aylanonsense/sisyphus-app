@@ -72,7 +72,7 @@ var CircleGameClient = (function() {
 		}
 	};
 	GameController.prototype.startMoving = function(dir) {
-		var action = { type: 'CHANGE_ENTITY_DIR', entityId: 0, dir: dir };
+		var action = { type: 'SET_ENTITY_DIR', entityId: 0, dir: dir };
 		if(dir === 'N' || dir === 'S') {
 			action.axis = 'VERTICAL';
 		}
@@ -82,7 +82,7 @@ var CircleGameClient = (function() {
 		this._runner.receiveAction(action);
 	};
 	GameController.prototype.stopMoving = function(dir) {
-		var action = { type: 'CHANGE_ENTITY_DIR', entityId: 0, dir: null };
+		var action = { type: 'SET_ENTITY_DIR', entityId: 0, dir: null };
 		if(dir === 'N' || dir === 'S') {
 			action.axis = 'VERTICAL';
 		}
