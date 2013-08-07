@@ -142,6 +142,10 @@ var CircleGameClient = (function() {
 
 	function KeyboardInputListener(controlReceiver) {
 		this._controlReceiver = controlReceiver;
+		this._isMovingNorth = false;
+		this._isMovingSouth = false;
+		this._isMovingEast = false;
+		this._isMovingWest = false;
 	}
 	KeyboardInputListener.prototype.receiveInput = function(input) {
 		var control = this._toControl(input);
@@ -153,19 +157,48 @@ var CircleGameClient = (function() {
 		if(input.device === 'KEYBOARD') {
 			if(input.event === 'PRESS') {
 				switch(input.key) {
-					case 87: return { type: 'BEGIN_MOVE', dir: 'N' };
-					case 83: return { type: 'BEGIN_MOVE', dir: 'S' };
-					case 68: return { type: 'BEGIN_MOVE', dir: 'E' };
-					case 65: return { type: 'BEGIN_MOVE', dir: 'W' };
-					case 13: return { type: 'CONFIRM' };
+					case 87: // W
+						this._isMovingNorth = true;
+						return { type: 'BEGIN_MOVE', dir: 'N' };
+					case 83: // S
+						this._isMovingSouth = true;
+						return { type: 'BEGIN_MOVE', dir: 'S' };
+					case 68: // D
+						this._isMovingEast = true;
+						return { type: 'BEGIN_MOVE', dir: 'E' };
+					case 65: // A
+						this._isMovingWest = true;
+						return { type: 'BEGIN_MOVE', dir: 'W' };
+					case 13: // Enter
+						return { type: 'CONFIRM' };
 				}
 			}
 			else if(input.event === 'RELEASE') {
 				switch(input.key) {
-					case 87: return { type: 'END_MOVE', dir: 'N' };
-					case 83: return { type: 'END_MOVE', dir: 'S' };
-					case 68: return { type: 'END_MOVE', dir: 'E' };
-					case 65: return { type: 'END_MOVE', dir: 'W' };
+					case 87: // W
+						this._isMovingNorth = false;
+						if(this._isMovingSouth) {
+							return { type: 'BEGIN_MOVE', dir: 'S' };
+						}
+						return { type: 'END_MOVE', dir: 'N' };
+					case 83: // S
+						this._isMovingSouth = false;
+						if(this._isMovingNorth) {
+							return { type: 'BEGIN_MOVE', dir: 'N' };
+						}
+						return { type: 'END_MOVE', dir: 'S' };
+					case 68: // D
+						this._isMovingEast = false;
+						if(this._isMovingWest) {
+							return { type: 'BEGIN_MOVE', dir: 'W' };
+						}
+						return { type: 'END_MOVE', dir: 'E' };
+					case 65: // A
+						this._isMovingWest = false;
+						if(this._isMovingEast) {
+							return { type: 'BEGIN_MOVE', dir: 'E' };
+						}
+						return { type: 'END_MOVE', dir: 'W' };
 				}
 			}
 		}
@@ -226,7 +259,7 @@ $(document).ready(function() {
 		color: 'blue',
 		dir: null
 	});
-	$('<input type="button" value="Start Moving Left" />')
+	/*$('<input type="button" value="Start Moving Left" />')
 		.on('click', function() {
 			game.getController().startMoving('W');
 		})
@@ -247,5 +280,5 @@ $(document).ready(function() {
 		if(i%4 === 3) {
 			c.startMoving('SW');
 		}
-	}, 400);
+	}, 400);*/
 });
