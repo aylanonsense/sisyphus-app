@@ -54,11 +54,9 @@ var CircleGameClient = (function() {
 		this._runner = runner;
 	}
 	GameController.prototype.receiveControl = function(control) {
-		if(control.type === 'BEGIN_MOVE') {
-			this.startMoving(control.dir);
-		}
-		else if(control.type === 'END_MOVE') {
-			this.stopMoving(control.dir);
+		var v, ClientNetworkHandler;
+		if(control.type === 'DIR') {
+			this.changeDirection(control.horizontal, control.vertical);
 		}
 		else if(control.type === 'CONFIRM') {
 			//TODO request for spawn
@@ -71,24 +69,8 @@ var CircleGameClient = (function() {
 			});
 		}
 	};
-	GameController.prototype.startMoving = function(dir) {
-		var action = { type: 'SET_ENTITY_DIR', entityId: 0, dir: dir };
-		if(dir === 'N' || dir === 'S') {
-			action.axis = 'VERTICAL';
-		}
-		else if(dir === 'E' || dir === 'W') {
-			action.axis = 'HORIZONTAL';
-		}
-		this._runner.receiveAction(action);
-	};
-	GameController.prototype.stopMoving = function(dir) {
-		var action = { type: 'SET_ENTITY_DIR', entityId: 0, dir: null };
-		if(dir === 'N' || dir === 'S') {
-			action.axis = 'VERTICAL';
-		}
-		else if(dir === 'E' || dir === 'W') {
-			action.axis = 'HORIZONTAL';
-		}
+	GameController.prototype.changeDirection = function(horizontal, vertical) {
+		var action = { type: 'SET_ENTITY_DIR', entityId: 0, horizontal: horizontal, vertical: vertical };
 		this._runner.receiveAction(action);
 	};
 	GameController.prototype.spawn = function(state) {
@@ -142,10 +124,12 @@ var CircleGameClient = (function() {
 
 	function KeyboardInputListener(controlReceiver) {
 		this._controlReceiver = controlReceiver;
-		this._isMovingNorth = false;
-		this._isMovingSouth = false;
-		this._isMovingEast = false;
-		this._isMovingWest = false;
+		this._up = false;
+		this._down = false;
+		this._left = false;
+		this._right = false;
+		this._horizontal = 0;
+		this._vertical = 0;
 	}
 	KeyboardInputListener.prototype.receiveInput = function(input) {
 		var control = this._toControl(input);
@@ -156,49 +140,48 @@ var CircleGameClient = (function() {
 	KeyboardInputListener.prototype._toControl = function(input) {
 		if(input.device === 'KEYBOARD') {
 			if(input.event === 'PRESS') {
-				switch(input.key) {
-					case 87: // W
-						this._isMovingNorth = true;
-						return { type: 'BEGIN_MOVE', dir: 'N' };
-					case 83: // S
-						this._isMovingSouth = true;
-						return { type: 'BEGIN_MOVE', dir: 'S' };
-					case 68: // D
-						this._isMovingEast = true;
-						return { type: 'BEGIN_MOVE', dir: 'E' };
-					case 65: // A
-						this._isMovingWest = true;
-						return { type: 'BEGIN_MOVE', dir: 'W' };
-					case 13: // Enter
-						return { type: 'CONFIRM' };
+				if(input.key === 13) { // Enter
+					return { type: 'CONFIRM' };
+				}
+				else if(input.key === 87 || input.key === 83 || input.key === 65 || input.key === 68) {
+					if(input.key === 87) { // W
+						this._up = true;
+						this._vertical = -1;
+					}
+					else if(input.key === 83) { // S
+						this._down = true;
+						this._vertical = 1;
+					}
+					else if(input.key === 65) { // A
+						this._left = true;
+						this._horizontal = -1;
+					}
+					else if(input.key === 68) { // D
+						this._right = true;
+						this._horizontal = 1;
+					}
+					return { type: 'DIR', horizontal: this._horizontal, vertical: this._vertical };
 				}
 			}
 			else if(input.event === 'RELEASE') {
-				switch(input.key) {
-					case 87: // W
-						this._isMovingNorth = false;
-						if(this._isMovingSouth) {
-							return { type: 'BEGIN_MOVE', dir: 'S' };
-						}
-						return { type: 'END_MOVE', dir: 'N' };
-					case 83: // S
-						this._isMovingSouth = false;
-						if(this._isMovingNorth) {
-							return { type: 'BEGIN_MOVE', dir: 'N' };
-						}
-						return { type: 'END_MOVE', dir: 'S' };
-					case 68: // D
-						this._isMovingEast = false;
-						if(this._isMovingWest) {
-							return { type: 'BEGIN_MOVE', dir: 'W' };
-						}
-						return { type: 'END_MOVE', dir: 'E' };
-					case 65: // A
-						this._isMovingWest = false;
-						if(this._isMovingEast) {
-							return { type: 'BEGIN_MOVE', dir: 'E' };
-						}
-						return { type: 'END_MOVE', dir: 'W' };
+				if(input.key === 87 || input.key === 83 || input.key === 65 || input.key === 68) {
+					if(input.key === 87) { // W
+						this._up = false;
+						this._vertical = (this._down ? 1: 0);
+					}
+					else if(input.key === 83) { // S
+						this._down = false;
+						this._vertical = (this._up ? -1 : 0);
+					}
+					else if(input.key === 65) { // A
+						this._left = false;
+						this._horizontal = (this._right ? 1 : 0);
+					}
+					else if(input.key === 68) { // D
+						this._right = false;
+						this._horizontal = (this._left ? -1 : 0);
+					}
+					return { type: 'DIR', horizontal: this._horizontal, vertical: this._vertical };
 				}
 			}
 		}
@@ -257,7 +240,8 @@ $(document).ready(function() {
 		x: 100,
 		y: 100,
 		color: 'blue',
-		dir: null
+		horizontal: 0,
+		vertical: 0
 	});
 	/*$('<input type="button" value="Start Moving Left" />')
 		.on('click', function() {

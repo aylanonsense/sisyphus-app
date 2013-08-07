@@ -110,7 +110,7 @@ var CircleGame = (function() {
 			this.spawnEntity(action.state);
 		}
 		else if(action.type === 'SET_ENTITY_DIR') {
-			this.setEntityDir(action.entityId, action.dir, action.axis);
+			this.setEntityDir(action.entityId, action.horizontal, action.vertical);
 		}
 	};
 	Game.prototype._getEntity = function(id) {
@@ -124,8 +124,8 @@ var CircleGame = (function() {
 	Game.prototype.spawnEntity = function(state) {
 		this._entities.push(new GameEntity(state));
 	};
-	Game.prototype.setEntityDir = function(entityId, dir, axis) {
-		this._getEntity(entityId).setDir(dir, axis);
+	Game.prototype.setEntityDir = function(entityId, horizontal, vertical) {
+		this._getEntity(entityId).setDir(horizontal, vertical);
 	};
 	Game.prototype.update = function(ms) {
 		this._entities.forEach(function(entity) {
@@ -148,8 +148,8 @@ var CircleGame = (function() {
 
 
 	function GameEntity(state) {
-		this._horizontalMovement = 0;
-		this._verticalMovement = 0;
+		this._horizontal = 0;
+		this._vertical = 0;
 		this.setState(state);
 	}
 	GameEntity.prototype.MOVE_SPEED = 150;
@@ -157,149 +157,29 @@ var CircleGame = (function() {
 	GameEntity.prototype.getId = function() {
 		return this._id;
 	};
-	GameEntity.prototype.setDir = function(dir, axis) {
-		if(axis === 'HORIZONTAL') {
-			this._setHorizontalDir(dir);
+	GameEntity.prototype.setDir = function(horizontal, vertical) {
+		if(horizontal !== null) {
+			this._horizontal = horizontal;
 		}
-		else if(axis === 'VERTICAL') {
-			this._setVerticalDir(dir);
-		}
-		else {
-			this._dir = dir;
-			switch(dir) {
-				case 'N':
-					this._horizontalMovement = 0;
-					this._verticalMovement = -1;
-					break;
-				case 'S':
-					this._horizontalMovement = 0;
-					this._verticalMovement = 1;
-					break;
-				case 'E':
-					this._horizontalMovement = 1;
-					this._verticalMovement = 0;
-					break;
-				case 'W':
-					this._horizontalMovement = -1;
-					this._verticalMovement = 0;
-					break;
-				case 'NE':
-					this._horizontalMovement = 1;
-					this._verticalMovement = -1;
-					break;
-				case 'NW':
-					this._horizontalMovement = -1;
-					this._verticalMovement = -1;
-					break;
-				case 'SE':
-					this._horizontalMovement = 1;
-					this._verticalMovement = 1;
-					break;
-				case 'SW':
-					this._horizontalMovement = -1;
-					this._verticalMovement = 1;
-					break;
-				default:
-					this._horizontalMovement = 0;
-					this._verticalMovement = 0;
-					break;
-			}
-		}
-	};
-	GameEntity.prototype._setHorizontalDir = function(dir) {
-		switch(dir) {
-			case 'E':
-				this._horizontalMovement = 1;
-				if(this._dir === 'N' || this._dir === 'NE' || this._dir === 'NW') {
-					this._dir = 'NE';
-				}
-				else if(this._dir === 'S' || this._dir === 'SE' || this._dir === 'SW') {
-					this._dir = 'SE';
-				}
-				else {
-					this._dir = 'E';
-				}
-				break;
-			case 'W':
-				this._horizontalMovement = -1;
-				if(this._dir === 'N' || this._dir === 'NE' || this._dir === 'NW') {
-					this._dir = 'NW';
-				}
-				else if(this._dir === 'S' || this._dir === 'SE' || this._dir === 'SW') {
-					this._dir = 'SW';
-				}
-				else {
-					this._dir = 'W';
-				}
-				break;
-			default:
-				this._horizontalMovement = 0;
-				if(this._dir === 'N' || this._dir === 'NE' || this._dir === 'NW') {
-					this._dir = 'N';
-				}
-				else if(this._dir === 'S' || this._dir === 'SE' || this._dir === 'SW') {
-					this._dir = 'S';
-				}
-				else {
-					this._dir = null;
-				}
-				break;
-		}
-	};
-	GameEntity.prototype._setVerticalDir = function(dir) {
-		switch(dir) {
-			case 'N':
-				this._verticalMovement = -1;
-				if(this._dir === 'E' || this._dir === 'NE' || this._dir === 'SE') {
-					this._dir = 'NE';
-				}
-				else if(this._dir === 'W' || this._dir === 'NW' || this._dir === 'SW') {
-					this._dir = 'NW';
-				}
-				else {
-					this._dir = 'N';
-				}
-				break;
-			case 'S':
-				this._verticalMovement = 1;
-				if(this._dir === 'E' || this._dir === 'NE' || this._dir === 'SE') {
-					this._dir = 'SE';
-				}
-				else if(this._dir === 'W' || this._dir === 'NW' || this._dir === 'SW') {
-					this._dir = 'SW';
-				}
-				else {
-					this._dir = 'S';
-				}
-				break;
-			default:
-				this._verticalMovement = 0;
-				if(this._dir === 'E' || this._dir === 'NE' || this._dir === 'SE') {
-					this._dir = 'E';
-				}
-				else if(this._dir === 'W' || this._dir === 'NW' || this._dir === 'SW') {
-					this._dir = 'W';
-				}
-				else {
-					this._dir = null;
-				}
-				break;
+		if(vertical !== null) {
+			this._vertical = vertical;
 		}
 	};
 	GameEntity.prototype.update = function(ms) {
 		var moveSpeed = this.MOVE_SPEED;
-		if(this._horizontalMovement !== 0 && this._verticalMovement !== 0) {
+		if(this._horizontal !== 0 && this._vertical !== 0) {
 			moveSpeed = this.DIAGONAL_MOVE_SPEED;
 		}
-		this._x += this._horizontalMovement * moveSpeed * ms / 1000;
-		this._y += this._verticalMovement * moveSpeed * ms / 1000;
+		this._x += this._horizontal * moveSpeed * ms / 1000;
+		this._y += this._vertical * moveSpeed * ms / 1000;
 	};
 	GameEntity.prototype.getState = function() {
 		return {
 			id: this._id,
 			x: this._x,
 			y: this._y,
-			dir: this._dir,
+			horizontal: this._horizontal,
+			vertical: this._vertical,
 			color: this._color
 		};
 	};
@@ -307,7 +187,7 @@ var CircleGame = (function() {
 		this._id = state.id;
 		this._x = state.x;
 		this._y = state.y;
-		this.setDir(state.dir);
+		this.setDir(state.horizontal, state.vertical);
 		this._color = state.color;
 	};
 
