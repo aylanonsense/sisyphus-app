@@ -2,7 +2,10 @@ var GameCommon = (function() {
 /*
 	GamePlayer
 		update(ms)
-		handleDelta(delta, time)
+		handleDelta(delta, source, time)
+		getTime()
+		getState()
+		setStateAndTime(state, time);
 	Game
 		update(ms)
 		applyDelta(delta)
@@ -30,6 +33,7 @@ var GameCommon = (function() {
 		this._deltaHistory = [];
 		this._stateHistory = [];
 		this._startingState = this._game.getState();
+		this._startingTime = this._gameTIme;
 		this._earliestDeltaTime = 0;
 		this._timeToStateStorage = 0;
 		this._stateStorageFreq = (params.stateStorageFreq || 250);
@@ -73,9 +77,9 @@ var GameCommon = (function() {
 			}
 		}
 		this._game.setState(this._startingState);
-		return 0;
+		return this._startingTime;
 	};
-	GamePlayer.prototype.handleDelta = function(delta, time) {
+	GamePlayer.prototype.handleDelta = function(delta, source, time) {
 		if(typeof time === "undefined") {
 			if(this._timeOfLastUpdate === null) {
 				time = 0;
@@ -86,7 +90,7 @@ var GameCommon = (function() {
 		}
 		for(var i = 0; i < this._deltaHistory.length; i++) {
 			if(time < this._deltaHistory[i].time) {
-				this._deltaHistory.splice(i, 0, { delta: delta, time: time });
+				this._deltaHistory.splice(i, 0, { delta: delta, source: source, time: time });
 				return;
 			}
 		}
@@ -117,8 +121,20 @@ var GameCommon = (function() {
 		}
 		this._deltaHistory = [];
 	};
+	GamePlayer.prototype.getTime = function() {
+		return this._gameTime;
+	};
 	GamePlayer.prototype.getState = function() {
 		return this._game.getState();
+	};
+	GamePlayer.prototype.setStateAndTime = function(state, time) {
+		console.log("Setting game state to", state);
+		this._game.setState(state);
+		this._gameTime = time;
+		this._startingState = state;
+		this._startingTime = time;
+		this._removeDeltasBefore(time);
+		this._stateHistory = [];
 	};
 
 
@@ -161,7 +177,7 @@ var GameCommon = (function() {
 		};
 	};
 	Game.prototype.setState = function(state) {
-		this._entites = state.entities.map(function(state) {
+		this._entities = state.entities.map(function(state) {
 			return new GameEntity(state);
 		});
 	};

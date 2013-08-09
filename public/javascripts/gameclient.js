@@ -20,6 +20,7 @@ var GameClient = (function() {
 		onControl(control)
 	NetworkHandler
 		sendCommand(command)
+		onReceiveState(callback)
 		onReceiveDelta(callback)
 	Socket
 		emit(messageType, message)
@@ -50,7 +51,11 @@ var GameClient = (function() {
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
 			if(debug) console.log("Received delta:", delta, time);
-			self._gamePlayer.handleDelta(delta);//, time);  //TODO uncomment time
+			self._gamePlayer.handleDelta(delta, 'SERVER');//, time);  //TODO uncomment time
+		});
+		this._networkHandler.onReceiveState(function(state, time) {
+			if(debug) console.log("Received state:", state, time);
+			self._gamePlayer.setStateAndTime(state, time);
 		});
 	}
 	GameRunner.prototype.start = function() {
@@ -227,10 +232,16 @@ var GameClient = (function() {
 			maxMessagesSentPerSecond: 10
 		});
 		this._receiveDeltaCallbacks = [];
+		this._receiveStateCallbacks = [];
 		this._conn.onReceive(function(message) {
 			if(message.type === 'DELTA') {
 				self._receiveDeltaCallbacks.forEach(function(callback) {
 					callback(message.delta, message.time);
+				});
+			}
+			if(message.type === 'STATE') {
+				self._receiveStateCallbacks.forEach(function(callback) {
+					callback(message.state, message.time);
 				});
 			}
 		});
@@ -240,6 +251,9 @@ var GameClient = (function() {
 	};
 	NetworkHandler.prototype.onReceiveDelta = function(callback) {
 		this._receiveDeltaCallbacks.push(callback);
+	};
+	NetworkHandler.prototype.onReceiveState = function(callback) {
+		this._receiveStateCallbacks.push(callback);
 	};
 
 

@@ -33,6 +33,13 @@ function GameRunner() {
 
 	this._networkHandler.onConnect(function(playerId) {
 		console.log("Player " + playerId + " connected!");
+		var state = self._gamePlayer.getState();
+		var time = self._gamePlayer.getTime();
+		if(debug) {
+			console.log("Sending state at time " + time + ":");
+			console.log(state);
+		}
+		self._networkHandler.sendState(playerId, state, time);
 	});
 	this._networkHandler.onDisconnect(function(playerId) {
 		console.log("Player " + playerId + " disconnected!");
@@ -158,22 +165,29 @@ NetworkHandler.prototype._removePlayer = function(playerId) {
 	}
 	delete this._players[playerId];
 };
-NetworkHandler.prototype.sendDelta = function(playerId, delta, time) {
-	this._players[playerId].send(this._wrapDelta(delta, time));
+NetworkHandler.prototype._send = function(playerId, message) {
+	this._players[playerId].send(message);
 };
-NetworkHandler.prototype.sendDeltaToAll = function(delta, time) {
-	var message = this._wrapDelta(delta, time);
+NetworkHandler.prototype._sendToAll = function(message) {
 	for(var i = 0; i < this._playerIds.length; i++) {
 		this._players[this._playerIds[i]].send(message);
 	}
 };
-NetworkHandler.prototype.sendDeltaToAllExcept = function(playerId, delta, time) {
-	var message = this._wrapDelta(delta, time);
+NetworkHandler.prototype._sendToAllExcept = function(playerId, message) {
 	for(var i = 0; i < this._playerIds.length; i++) {
-		if(this._playerids[i] !== playerId) {
+		if(this._playerIds[i] !== playerId) {
 			this._players[this._playerIds[i]].send(message);
 		}
 	}
+};
+NetworkHandler.prototype.sendState = function (playerId, state, time) {
+	this._send(playerId, this._wrapState(state, time));
+};
+NetworkHandler.prototype._wrapState = function(state, time) {
+	return { type: 'STATE', state: state, time: time };
+};
+NetworkHandler.prototype.sendDeltaToAll = function(delta, time) {
+	this._sendToAll(this._wrapDelta(delta, time));
 };
 NetworkHandler.prototype._wrapDelta = function(delta, time) {
 	return { type: 'DELTA', delta: delta, time: time };
