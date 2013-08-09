@@ -1,4 +1,219 @@
-var GameLib = (function() {
+var GameCommon = (function() {
+/*
+	GamePlayer
+		update(ms)
+		handleDelta(delta, time)
+	Game
+		update(ms)
+		applyDelta(delta)
+		getState()
+		setState(state)
+	GameEntity
+		getId()
+		update(ms)
+		setDir(horizontal, vertical)
+		getState()
+		setState(state)
+	Connection
+		getPing()
+		ping()
+		send(message)
+		flush()
+		onReceive()
+		onDisconnect()
+*/
+
+	function GamePlayer(params) {
+		this._gameTime = 0;
+		this._game = new Game();
+		this._maxRewind = (params.maxRewind || 0);
+		this._deltaHistory = [];
+		this._stateHistory = [];
+		this._startingState = this._game.getState();
+		this._earliestDeltaTime = 0;
+		this._timeToStateStorage = 0;
+		this._stateStorageFreq = (params.stateStorageFreq || 250);
+		this._timeOfLastUpdate = null;
+	}
+	GamePlayer.prototype.update = function(ms) {
+		var startTime = this._gameTime;
+		var endTime = this._gameTime + ms;
+		if(this._earliestDeltaTime !== null && this._earliestDeltaTime < this._gameTime) {
+			startTime = this._rewind(this._earliestDeltaTime);
+		}
+		var deltas = this._getDeltasBetween(startTime, endTime);
+		var currTime = startTime;
+		for(var i = 0; i < deltas.length; i++) {
+			this._game.update(deltas[i].time - currTime);
+			currTime = deltas[i].time;
+			this._game.applyDelta(deltas[i].delta);
+		}
+		this._game.update(endTime - currTime);
+		this._gameTime = endTime;
+		this._removeDeltasBefore(endTime - this._maxRewind);
+		this._timeToStateStorage -= ms;
+		if(this._timeToStateStorage <= 0) {
+			this._timeToStateStorage += this._stateStorageFreq;
+			if(this._timeToStateStorage < 0) {
+				this._timeToStateStorage = 0;
+			}
+			this._stateHistory.push({
+				state: this._game.getState(),
+				time: this._gameTime
+			});
+		}
+		this._earliestDeltaTime = null;
+		this._timeOfLastUpdate = Date.now();
+	};
+	GamePlayer.prototype._rewind = function(time) {
+		for(var i = this._stateHistory.length - 1; i >= 0; i--) {
+			if(this._stateHistory[i].time <= time) {
+				this._game.setState(this._stateHistory[i].state);
+				return this._stateHistory[i].time;
+			}
+		}
+		this._game.setState(this._startingState);
+		return 0;
+	};
+	GamePlayer.prototype.handleDelta = function(delta, time) {
+		if(typeof time === "undefined") {
+			if(this._timeOfLastUpdate === null) {
+				time = 0;
+			}
+			else {
+				time = this._gameTime + (Date.now() - this._timeOfLastUpdate);
+			}
+		}
+		for(var i = 0; i < this._deltaHistory.length; i++) {
+			if(time < this._deltaHistory[i].time) {
+				this._deltaHistory.splice(i, 0, { delta: delta, time: time });
+				return;
+			}
+		}
+		this._deltaHistory.push({ delta: delta, time: time });
+		if(this._earliestDeltaTime === null || time < this._earliestDeltaTime) {
+			this._earliestDeltaTime = time;
+		}
+		return time;
+	};
+	GamePlayer.prototype._getDeltasBetween = function(startTime, endTime) {
+		var deltas = [];
+		for(var i = 0; i < this._deltaHistory.length; i++) {
+			if(this._deltaHistory[i].time >= endTime) {
+				break;
+			}
+			if(this._deltaHistory[i].time >= startTime) {
+				deltas.push(this._deltaHistory[i]);
+			}
+		}
+		return deltas;
+	};
+	GamePlayer.prototype._removeDeltasBefore = function(time) {
+		for(var i = 0; i < this._deltaHistory.length; i++) {
+			if(this._deltaHistory.time >= time) {
+				this._deltaHistory.splice(0, i);
+				return;
+			}
+		}
+		this._deltaHistory = [];
+	};
+	GamePlayer.prototype.getState = function() {
+		return this._game.getState();
+	};
+
+
+
+	function Game() {
+		this._entities = [];
+	}
+	Game.prototype.update = function(ms) {
+		this._entities.forEach(function(entity) {
+			entity.update(ms);
+		});
+	};
+	Game.prototype.applyDelta = function(delta) {
+		if(delta.type === 'SPAWN_ENTITY') {
+			this._spawnEntity(delta.state);
+		}
+		else if(delta.type === 'SET_ENTITY_DIR') {
+			this._setEntityDir(delta.entityId, delta.horizontal, delta.vertical);
+		}
+	};
+	Game.prototype._spawnEntity = function(state) {
+		this._entities.push(new GameEntity(state));
+	};
+	Game.prototype._setEntityDir = function(entityId, horizontal, vertical) {
+		this._getEntity(entityId).setDir(horizontal, vertical);
+	};
+	Game.prototype._getEntity = function(id) {
+		for(var i = 0; i < this._entities.length; i++) {
+			if(this._entities[i].getId() === id) {
+				return this._entities[i];
+			}
+		}
+		return null;
+	};
+	Game.prototype.getState = function() {
+		return {
+			entities: this._entities.map(function(entity) {
+				return entity.getState();	
+			})
+		};
+	};
+	Game.prototype.setState = function(state) {
+		this._entites = state.entities.map(function(state) {
+			return new GameEntity(state);
+		});
+	};
+
+
+
+	function GameEntity(state) {
+		this._horizontal = 0;
+		this._vertical = 0;
+		this.setState(state);
+	}
+	GameEntity.prototype.MOVE_SPEED = 150;
+	GameEntity.prototype.DIAGONAL_MOVE_SPEED = GameEntity.prototype.MOVE_SPEED / Math.sqrt(2);
+	GameEntity.prototype.getId = function() {
+		return this._id;
+	};
+	GameEntity.prototype.update = function(ms) {
+		var moveSpeed = this.MOVE_SPEED;
+		if(this._horizontal !== 0 && this._vertical !== 0) {
+			moveSpeed = this.DIAGONAL_MOVE_SPEED;
+		}
+		this._x += this._horizontal * moveSpeed * ms / 1000;
+		this._y += this._vertical * moveSpeed * ms / 1000;
+	};
+	GameEntity.prototype.setDir = function(horizontal, vertical) {
+		if(horizontal !== null) {
+			this._horizontal = horizontal;
+		}
+		if(vertical !== null) {
+			this._vertical = vertical;
+		}
+	};
+	GameEntity.prototype.getState = function() {
+		return {
+			id: this._id,
+			x: this._x,
+			y: this._y,
+			horizontal: this._horizontal,
+			vertical: this._vertical,
+			color: this._color
+		};
+	};
+	GameEntity.prototype.setState = function(state) {
+		this._id = state.id;
+		this._x = state.x;
+		this._y = state.y;
+		this.setDir(state.horizontal, state.vertical);
+		this._color = state.color;
+	};
+
+
+
 	function Connection(params) {
 		var self = this;
 
@@ -111,10 +326,12 @@ var GameLib = (function() {
 
 
 	return {
+		GamePlayer: GamePlayer,
+		Game: Game,
 		Connection: Connection
 	};
 })();
 
 if(typeof module !== "undefined" && typeof module.exports !== "undefined") {
-	module.exports = GameLib;
+	module.exports = GameCommon;
 }

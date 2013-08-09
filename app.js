@@ -7,7 +7,7 @@ var config = require('./config/config');
 var router = require('./router');
 //var auth = require('./authrouter');
 //var models = require('./models');
-var CircleGameServer = require('./circlegameserver');
+var GameServer = require('./gameserver');
 var app;
 var game;
 
@@ -16,7 +16,7 @@ app.http().io();
 
 //mongoose.connect(config.db.uri);
 
-game = new CircleGameServer();
+game = new GameServer();
 
 app.use(lessMiddleware({ src: __dirname + "/public", compress : true }));
 app.use(express.bodyParser());

@@ -1,20 +1,57 @@
-var CircleGameClient = (function() {
+var GameClient = (function() {
+	var GamePlayer = GameCommon.GamePlayer;
+	var Game = GameCommon.Game;
+	var Connection = GameCommon.Connection;
+	var debug = false;
 
-	/*
-		ClientNetworkHandler
-			send(message)
-			onReceive(callback(message))
-	*/
+/*
+	GameRunner
+		start()
+		stop()
+	Controller
+		handleControl(control)
+		onCommand(callback)
+	Renderer
+		setRenderTarget(ele)
+		render(state)
+		onInputEventFired(callback)
+	InputListener
+		handleInput(input)
+		onControl(control)
+	NetworkHandler
+		sendCommand(command)
+		onReceiveDelta(callback)
+	Socket
+		emit(messageType, message)
+		on(messageType, callback)
+*/
 
 	function GameRunner(params) {
-		this._game = new CircleGame({ maxRewind: params.maxRewind });
-		this._controller = new GameController(this);
-		this._inputListener = new KeyboardInputListener(this._controller);
-		this._renderer = new GameRenderer(this._game);
-		this._renderer.renderIn(params.renderTarget);
-		this._renderer.addInputListener(this._inputListener);
-		this._networkHandler = new ClientNetworkHandler();
+		var self = this;
 		this._timer = null;
+		this._renderer = new Renderer();
+		this._renderer.setRenderTarget(params.renderTarget);
+		this._inputListener = new InputListener();
+		this._controller = new Controller();
+		this._networkHandler = new NetworkHandler();
+		this._gamePlayer = new GamePlayer({ maxRewind: params.maxRewind });
+
+		this._renderer.onInputEventFired(function(input) {
+			if(debug) console.log("Received input:", input);
+			self._inputListener.handleInput(input);
+		});
+		this._inputListener.onControl(function(control) {
+			if(debug) console.log("Translated to control:", control);
+			self._controller.handleControl(control);
+		});
+		this._controller.onCommand(function(command) {
+			if(debug) console.log("Sending command:", command);
+			self._networkHandler.sendCommand(command);
+		});
+		this._networkHandler.onReceiveDelta(function(delta, time) {
+			if(debug) console.log("Received delta:", delta, time);
+			self._gamePlayer.handleDelta(delta);//, time);  //TODO uncomment time
+		});
 	}
 	GameRunner.prototype.start = function() {
 		var self, now, then;
@@ -29,8 +66,8 @@ var CircleGameClient = (function() {
 		}
 	};
 	GameRunner.prototype._update = function(ms) {
-		this._game.update(ms);
-		this._renderer.render();
+		this._gamePlayer.update(ms);
+		this._renderer.render(this._gamePlayer.getState());
 	};
 	GameRunner.prototype.stop = function() {
 		if(this._timer !== null) {
@@ -38,51 +75,40 @@ var CircleGameClient = (function() {
 			this._timer = null;
 		}
 	};
-	GameRunner.prototype.getController = function() {
-		return this._controller;
-	};
-	GameRunner.prototype.receiveAction = function(action) {
-		this._game.receiveAction(action);
-	};
-	GameRunner.prototype.sendCommand = function(command) {
-		this._networkHandler.send('COMMAND', command);
-	};
 
 
 
-	function GameController(runner) {
-		this._runner = runner;
+	function Controller() {
+		this._commandCallbacks = [];
 	}
-	GameController.prototype.receiveControl = function(control) {
-		var v, ClientNetworkHandler;
+	Controller.prototype.onCommand = function(callback) {
+		this._commandCallbacks.push(callback);
+	};
+	Controller.prototype._fireCommand = function(command) {
+		this._commandCallbacks.forEach(function(callback) {
+			callback(command);
+		});
+	};
+	Controller.prototype.handleControl = function(control) {
 		if(control.type === 'DIR') {
-			this.changeDirection(control.horizontal, control.vertical);
+			this._fireCommand({
+				type: 'SET_MY_DIR',
+				horizontal: control.horizontal,
+				vertical: control.vertical
+			});
 		}
 		else if(control.type === 'CONFIRM') {
-			//TODO request for spawn
-			this.spawn({
-				id: 0,
-				x: 200,
-				y: 200,
-				color: 'orange',
-				dir: null
+			this._fireCommand({
+				type: 'SPAWN_ME'
 			});
 		}
 	};
-	GameController.prototype.changeDirection = function(horizontal, vertical) {
-		var action = { type: 'SET_ENTITY_DIR', entityId: 0, horizontal: horizontal, vertical: vertical };
-		this._runner.receiveAction(action);
-	};
-	GameController.prototype.spawn = function(state) {
-		this._runner.receiveAction({ type: 'SPAWN_ENTITY', state: state });
-	};
 
 
 
-	function GameRenderer(game) {
+	function Renderer() {
 		var self = this;
-		this._game = game;
-		this._inputListeners = [];
+		this._inputCallbacks = [];
 		this._root = $('<div tabindex="1" style="width:400px;height:400px;border:3px solid black;position:relative;"></div>');
 		this._keysDown = {};
 		this._root.on('keydown', function(evt) {
@@ -96,12 +122,11 @@ var CircleGameClient = (function() {
 			self._keysDown[evt.which] = false;
 		});
 	}
-	GameRenderer.prototype.renderIn = function(ele) {
+	Renderer.prototype.setRenderTarget = function(ele) {
 		ele.append(this._root);
 	};
-	GameRenderer.prototype.render = function() {
+	Renderer.prototype.render = function(state) {
 		var self = this;
-		var state = this._game.getState();
 		this._root.empty();
 		state.entities.forEach(function(entity) {
 			$('<div style="position:absolute;width:25px;height:25px;"></div>')
@@ -111,33 +136,38 @@ var CircleGameClient = (function() {
 				.appendTo(self._root);
 		});
 	};
-	GameRenderer.prototype.addInputListener = function(inputListener) {
-		this._inputListeners.push(inputListener);
+	Renderer.prototype.onInputEventFired = function(callback) {
+		this._inputCallbacks.push(callback);
 	};
-	GameRenderer.prototype._fireInputEvent = function(input) {
-		this._inputListeners.forEach(function(inputListener) {
-			inputListener.receiveInput(input);
+	Renderer.prototype._fireInputEvent = function(input) {
+		this._inputCallbacks.forEach(function(callback) {
+			callback(input);
 		});
 	};
 
 
 
-	function KeyboardInputListener(controlReceiver) {
-		this._controlReceiver = controlReceiver;
+	function InputListener() {
 		this._up = false;
 		this._down = false;
 		this._left = false;
 		this._right = false;
 		this._horizontal = 0;
 		this._vertical = 0;
+		this._controlCallbacks = [];
 	}
-	KeyboardInputListener.prototype.receiveInput = function(input) {
+	InputListener.prototype.onControl = function(callback) {
+		this._controlCallbacks.push(callback);
+	};
+	InputListener.prototype.handleInput = function(input) {
 		var control = this._toControl(input);
 		if(control !== null) {
-			this._controlReceiver.receiveControl(control);
+			this._controlCallbacks.forEach(function(callback) {
+				callback(control);
+			});
 		}
 	};
-	KeyboardInputListener.prototype._toControl = function(input) {
+	InputListener.prototype._toControl = function(input) {
 		if(input.device === 'KEYBOARD') {
 			if(input.event === 'PRESS') {
 				if(input.key === 13) { // Enter
@@ -190,25 +220,26 @@ var CircleGameClient = (function() {
 
 
 
-	function ClientNetworkHandler() {
+	function NetworkHandler() {
 		var self = this;
-		this._conn = new GameLib.Connection({
+		this._conn = new Connection({
 			socket: new Socket(),
 			maxMessagesSentPerSecond: 10
 		});
-		this._receiveCallbacks = [];
+		this._receiveDeltaCallbacks = [];
 		this._conn.onReceive(function(message) {
-			self._receiveCallbacks.forEach(function(callback) {
-				callback(message);
-			});
+			if(message.type === 'DELTA') {
+				self._receiveDeltaCallbacks.forEach(function(callback) {
+					callback(message.delta, message.time);
+				});
+			}
 		});
-		this._conn.send("Hello!");
 	}
-	ClientNetworkHandler.prototype.send = function(message) {
-		this._conn.send(message);
+	NetworkHandler.prototype.sendCommand = function(command) {
+		this._conn.send({ type: 'COMMAND', command: command });
 	};
-	ClientNetworkHandler.prototype.onReceive = function(callback) {
-		this._receiveCallbacks.push(callback);
+	NetworkHandler.prototype.onReceiveDelta = function(callback) {
+		this._receiveDeltaCallbacks.push(callback);
 	};
 
 
@@ -230,39 +261,9 @@ var CircleGameClient = (function() {
 })();
 
 $(document).ready(function() {
-	var game = new CircleGameClient({
-		renderTarget: $('#circle-game-area'),
-		maxRewind: 500
+	var game = new GameClient({
+		renderTarget: $('#game-area'),
+		maxRewind: 100000
 	});
 	game.start();
-	game.getController().spawn({
-		id: 0,
-		x: 100,
-		y: 100,
-		color: 'blue',
-		horizontal: 0,
-		vertical: 0
-	});
-	/*$('<input type="button" value="Start Moving Left" />')
-		.on('click', function() {
-			game.getController().startMoving('W');
-		})
-		.appendTo('body');
-	var c = game.getController();
-	var i = 0;
-	setInterval(function() {
-		i++;
-		if(i%4 === 0) {
-			c.startMoving('NW');
-		}
-		if(i%4 === 1) {
-			c.startMoving('NE');
-		}
-		if(i%4 === 2) {
-			c.startMoving('SE');
-		}
-		if(i%4 === 3) {
-			c.startMoving('SW');
-		}
-	}, 400);*/
 });
