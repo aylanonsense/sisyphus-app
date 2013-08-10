@@ -51,7 +51,7 @@ var GameClient = (function() {
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
 			if(debug) console.log("Received delta:", delta, time);
-			self._gamePlayer.handleDelta(delta, 'SERVER');//, time);  //TODO uncomment time
+			self._gamePlayer.handleDelta(delta, 'SERVER', time);
 		});
 		this._networkHandler.onReceiveState(function(state, time) {
 			if(debug) console.log("Received state:", state, time);

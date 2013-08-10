@@ -88,13 +88,17 @@ var GameCommon = (function() {
 				time = this._gameTime + (Date.now() - this._timeOfLastUpdate);
 			}
 		}
+		var addedDelta = false;
 		for(var i = 0; i < this._deltaHistory.length; i++) {
 			if(time < this._deltaHistory[i].time) {
 				this._deltaHistory.splice(i, 0, { delta: delta, source: source, time: time });
-				return;
+				addedDelta = true;
+				break;
 			}
 		}
-		this._deltaHistory.push({ delta: delta, time: time });
+		if(!addedDelta) {
+			this._deltaHistory.push({ delta: delta, source: source, time: time });
+		}
 		if(this._earliestDeltaTime === null || time < this._earliestDeltaTime) {
 			this._earliestDeltaTime = time;
 		}
@@ -114,7 +118,7 @@ var GameCommon = (function() {
 	};
 	GamePlayer.prototype._removeDeltasBefore = function(time) {
 		for(var i = 0; i < this._deltaHistory.length; i++) {
-			if(this._deltaHistory.time >= time) {
+			if(this._deltaHistory[i].time >= time) {
 				this._deltaHistory.splice(0, i);
 				return;
 			}
@@ -128,7 +132,6 @@ var GameCommon = (function() {
 		return this._game.getState();
 	};
 	GamePlayer.prototype.setStateAndTime = function(state, time) {
-		console.log("Setting game state to", state);
 		this._game.setState(state);
 		this._gameTime = time;
 		this._startingState = state;
