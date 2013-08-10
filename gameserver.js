@@ -9,7 +9,7 @@ var debug = false;
 		start()
 		stop()
 	Controller
-		handleCommand(playerId, command)
+		handleCommand(playerId, command, time)
 		onDeltaGenerated(callback)
 	NetworkHandler
 		addConnection(conn)
@@ -44,12 +44,12 @@ function GameRunner() {
 	this._networkHandler.onDisconnect(function(playerId) {
 		console.log("Player " + playerId + " disconnected!");
 	});
-	this._networkHandler.onReceiveCommand(function(playerId, command) {
-		if(debug) console.log("Received command from player" + playerId + ":", command);
-		self._controller.handleCommand(playerId, command);
+	this._networkHandler.onReceiveCommand(function(playerId, command, time) {
+		if(debug) console.log("Received command from player" + playerId + " at " + time + ":", command);
+		self._controller.handleCommand(playerId, command, time);
 	});
-	this._controller.onDeltaGenerated(function(delta) {
-		var time = self._gamePlayer.handleDelta(delta);
+	this._controller.onDeltaGenerated(function(delta, time) {
+		time = self._gamePlayer.handleDelta(delta, time);
 		if(debug) {
 			console.log("Sending delta at time " + time + ":");
 			console.log(delta);
@@ -88,14 +88,14 @@ GameRunner.prototype.onConnected = function(conn) {
 function Controller() {
 	this._deltaCallbacks = [];
 }
-Controller.prototype.handleCommand = function(playerId, command) {
+Controller.prototype.handleCommand = function(playerId, command, time) {
 	if(command.type === 'SET_MY_DIR') {
 		this._fireDelta({
 			type: 'SET_ENTITY_DIR',
 			entityId: 100 + playerId,
 			horizontal: command.horizontal,
 			vertical: command.vertical
-		});
+		}, time);
 	}
 	else if(command.type === 'SPAWN_ME') {
 		this._fireDelta({
@@ -108,12 +108,12 @@ Controller.prototype.handleCommand = function(playerId, command) {
 				vertical: 0,
 				color: (Math.random() < 0.5 ? 'orange' : 'green')
 			}
-		});
+		}, time);
 	}
 };
-Controller.prototype._fireDelta = function(delta) {
+Controller.prototype._fireDelta = function(delta, time) {
 	this._deltaCallbacks.forEach(function(callback) {
-		callback(delta);
+		callback(delta, time);
 	});
 };
 Controller.prototype.onDeltaGenerated = function(callback) {
@@ -142,7 +142,7 @@ NetworkHandler.prototype.addConnection = function(conn) {
 	this._players[playerId].onReceive(function(message) {
 		if(message.type === 'COMMAND') {
 			self._receiveCommandCallbacks.forEach(function(callback) {
-				callback(playerId, message.command);
+				callback(playerId, message.command, message.time);
 			});
 		}
 	});

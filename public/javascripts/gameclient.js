@@ -19,7 +19,7 @@ var GameClient = (function() {
 		handleInput(input)
 		onControl(control)
 	NetworkHandler
-		sendCommand(command)
+		sendCommand(command, time)
 		onReceiveState(callback)
 		onReceiveDelta(callback)
 	Socket
@@ -46,8 +46,9 @@ var GameClient = (function() {
 			self._controller.handleControl(control);
 		});
 		this._controller.onCommand(function(command) {
-			if(debug) console.log("Sending command:", command);
-			self._networkHandler.sendCommand(command);
+			var time = self._gamePlayer.getSplitSecondTime();
+			if(debug) console.log("Sending command:", command, time);
+			self._networkHandler.sendCommand(command, time);
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
 			if(debug) console.log("Received delta:", delta, time);
@@ -246,8 +247,8 @@ var GameClient = (function() {
 			}
 		});
 	}
-	NetworkHandler.prototype.sendCommand = function(command) {
-		this._conn.send({ type: 'COMMAND', command: command });
+	NetworkHandler.prototype.sendCommand = function(command, time) {
+		this._conn.send({ type: 'COMMAND', command: command, time: time });
 	};
 	NetworkHandler.prototype.onReceiveDelta = function(callback) {
 		this._receiveDeltaCallbacks.push(callback);

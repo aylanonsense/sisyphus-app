@@ -128,6 +128,12 @@ var GameCommon = (function() {
 	GamePlayer.prototype.getTime = function() {
 		return this._gameTime;
 	};
+	GamePlayer.prototype.getSplitSecondTime = function() {
+		if(this._timeOfLastUpdate === null) {
+			return this._gameTime;
+		}
+		return this._gameTime + (Date.now() - this._timeOfLastUpdate);
+	};
 	GamePlayer.prototype.getState = function() {
 		return this._game.getState();
 	};
