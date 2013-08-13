@@ -24,6 +24,7 @@ var GameCommon = (function() {
 		flush()
 		onReceive()
 		onDisconnect()
+		simulateIncomingLag(minLag, maxLag, chanceOfSpike)
 */
 
 	function GamePlayer(params) {
@@ -255,6 +256,13 @@ var GameCommon = (function() {
 		this._lastPingTime = null;
 		this._nextPingId = 0;
 
+		//simulated lag
+		this._isSimulatingLag = false;
+		this._simulatedLagMin = 0;
+		this._simulatedLagMax = 0;
+		this._simulatedLagSpikeChance = 0;
+		this._lastLaggedMessageTime = null;
+
 		//socket
 		this._socket = params.socket;
 		this._socket.on('PING_REQUEST', function(message) {
@@ -340,12 +348,38 @@ var GameCommon = (function() {
 		}
 	};
 	Connection.prototype.onReceive = function(callback) {
+		var self = this;
 		this._socket.on('GAME_MESSAGES', function(messages) {
-			messages.forEach(callback);
+			if(self._isSimulatingLag) {
+				var now = Date.now();
+				var lag = (Math.random() < self._simulatedLagSpikeChance ? 1.5 + 2.5 * Math.random() : 1) *
+						(Math.random() * (self._simulatedLagMax - self._simulatedLagMin) + self._simulatedLagMin);
+				if(self._lastLaggedMessageTime !== null && now + lag < self._lastLaggedMessageTime) {
+					self._lastLaggedMessageTime += 10;
+					setTimeout(function() {
+						messages.forEach(callback);
+					}, self._lastLaggedMessageTime - now);
+				}
+				else {
+					self._lastLaggedMessageTime = now + lag;
+					setTimeout(function() {
+						messages.forEach(callback);
+					}, lag);
+				}
+			}
+			else {
+				messages.forEach(callback);
+			}
 		});
 	};
 	Connection.prototype.onDisconnect = function(callback) {
 		this._socket.on('disconnect', callback);
+	};
+	Connection.prototype.simulateIncomingLag = function(minLag, maxLag, chanceOfSpike) {
+		this._isSimulatingLag = true;
+		this._simulatedLagMin = minLag;
+		this._simulatedLagMax = maxLag;
+		this._simulatedLagSpikeChance = chanceOfSpike;
 	};
 
 

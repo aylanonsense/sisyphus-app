@@ -8,6 +8,13 @@ var debug = false;
 	GameRunner
 		start()
 		stop()
+	PlayerHandler
+		getPlayer()
+		addPlayer()
+		removePlayer()
+	Player
+		getDelay()
+		addDelay()
 	Controller
 		handleCommand(playerId, command, time)
 		onDeltaGenerated(callback)
@@ -30,6 +37,7 @@ function GameRunner() {
 	this._gamePlayer = new GamePlayer({ maxRewind: 0 });
 	this._networkHandler = new NetworkHandler();
 	this._controller = new Controller();
+	this._players = new PlayerHandler();
 
 	this._networkHandler.onConnect(function(playerId) {
 		console.log("Player " + playerId + " connected!");
@@ -39,14 +47,19 @@ function GameRunner() {
 			console.log("Sending state at time " + time + ":");
 			console.log(state);
 		}
+		self._players.addPlayer(playerId);
 		self._networkHandler.sendState(playerId, state, time);
 	});
 	this._networkHandler.onDisconnect(function(playerId) {
 		console.log("Player " + playerId + " disconnected!");
+		self._players.removePlayer(playerId);
 	});
-	this._networkHandler.onReceiveCommand(function(playerId, command, time) {
-		if(debug) console.log("Received command from player" + playerId + " at " + time + ":", command);
-		self._controller.handleCommand(playerId, command, time);
+	this._networkHandler.onReceiveCommand(function(playerId, command, clientTime) {
+		if(debug) console.log("Received command from player" + playerId + " at " + clientTime + ":", command);
+		var serverTime = self._gamePlayer.getSplitSecondTime();
+		var player = self._players.getPlayer(playerId);
+		player.addDelay(serverTime - clientTime);
+		self._controller.handleCommand(playerId, command, clientTime + player.getDelay());
 	});
 	this._controller.onDeltaGenerated(function(delta, time) {
 		time = self._gamePlayer.handleDelta(delta, time);
@@ -85,6 +98,77 @@ GameRunner.prototype.onConnected = function(conn) {
 
 
 
+function PlayerHandler() {
+	this._players = [];
+}
+PlayerHandler.prototype.getPlayer = function(playerId) {
+	return this._players[playerId];
+};
+PlayerHandler.prototype.addPlayer = function(playerId) {
+	this._players[playerId] = new Player();
+};
+PlayerHandler.prototype.removePlayer = function(playerId) {
+	delete this._players[playerId];
+};
+
+
+
+function Player() {
+	this._delay = null;
+	this._delays = [];
+	this._nextDelayIndex = 0;
+	for(var i = 0; i < 20; i++) {
+		this._delays[i] = null;
+	}
+}
+Player.prototype.getDelay = function() {
+	return this._delay;
+};
+Player.prototype.addDelay = function(delay) {
+	this._delays[this._nextDelayIndex] = delay;
+	this._nextDelayIndex++;
+	if(this._nextDelayIndex >= this._delays.length) {
+		this._nextDelayIndex = 0;
+	}
+	var highestDelay = null;
+	var secondHighestDelay = null;
+	var thirdHighestDelay = null;
+	var numDelay = 0;
+	var sumDelay = 0;
+	this._delays.forEach(function(delay) {
+		if(delay !== null) {
+			numDelay++;
+			sumDelay += delay;
+			if(highestDelay === null || delay >= highestDelay) {
+				thirdHighestDelay = secondHighestDelay;
+				secondHighestDelay = highestDelay;
+				highestDelay = delay;
+			}
+			else if(secondHighestDelay === null || delay >= secondHighestDelay) {
+				thirdHighestDelay = secondHighestDelay;
+				secondHighestDelay = delay;
+			}
+			else if(thirdHighestDelay === null || delay >= thirdHighestDelay) {
+				thirdHighestDelay = delay;
+			}
+		}
+	});
+	if(this._delay === null) {
+		this._delay = highestDelay;
+	}
+	else if(thirdHighestDelay !== null) {
+		var idealDelay = Math.min(highestDelay, thirdHighestDelay + 15);
+		if(thirdHighestDelay > this._delay) {
+			this._delay = idealDelay;
+		}
+		else if(idealDelay * numDelay - sumDelay > 200) {
+			this._delay = idealDelay;
+		}
+	}
+};
+
+
+
 function Controller() {
 	this._deltaCallbacks = [];
 }
@@ -95,7 +179,7 @@ Controller.prototype.handleCommand = function(playerId, command, time) {
 			entityId: 100 + playerId,
 			horizontal: command.horizontal,
 			vertical: command.vertical
-		}, time);
+		}, 6000);
 	}
 	else if(command.type === 'SPAWN_ME') {
 		this._fireDelta({
@@ -108,7 +192,7 @@ Controller.prototype.handleCommand = function(playerId, command, time) {
 				vertical: 0,
 				color: (Math.random() < 0.5 ? 'orange' : 'green')
 			}
-		}, time);
+		},  6000);
 	}
 };
 Controller.prototype._fireDelta = function(delta, time) {
@@ -137,8 +221,9 @@ NetworkHandler.prototype.addConnection = function(conn) {
 	this._playerIds.push(playerId);
 	this._players[playerId] = new Connection({
 		socket: socket,
-		maxMessagesSentPerSecond: 10
+		maxMessagesSentPerSecond: 10000
 	});
+	this._players[playerId].simulateIncomingLag(120, 180, 0.05);
 	this._players[playerId].onReceive(function(message) {
 		if(message.type === 'COMMAND') {
 			self._receiveCommandCallbacks.forEach(function(callback) {
