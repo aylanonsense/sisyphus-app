@@ -120,6 +120,7 @@ function Player() {
 	for(var i = 0; i < 20; i++) {
 		this._delays[i] = null;
 	}
+	this._additionsWithoutChangingDelay = 0;
 }
 Player.prototype.getDelay = function() {
 	return this._delay;
@@ -130,39 +131,53 @@ Player.prototype.addDelay = function(delay) {
 	if(this._nextDelayIndex >= this._delays.length) {
 		this._nextDelayIndex = 0;
 	}
+	this._recalculateDelay();
+};
+Player.prototype._recalculateDelay = function() {
+	this._additionsWithoutChangingDelay++;
 	var highestDelay = null;
 	var secondHighestDelay = null;
 	var thirdHighestDelay = null;
+	var fourthHighestDelay = null;
 	var numDelay = 0;
-	var sumDelay = 0;
 	this._delays.forEach(function(delay) {
 		if(delay !== null) {
 			numDelay++;
-			sumDelay += delay;
 			if(highestDelay === null || delay >= highestDelay) {
+				fourthHighestDelay = thirdHighestDelay;
 				thirdHighestDelay = secondHighestDelay;
 				secondHighestDelay = highestDelay;
 				highestDelay = delay;
 			}
 			else if(secondHighestDelay === null || delay >= secondHighestDelay) {
+				fourthHighestDelay = thirdHighestDelay;
 				thirdHighestDelay = secondHighestDelay;
 				secondHighestDelay = delay;
 			}
 			else if(thirdHighestDelay === null || delay >= thirdHighestDelay) {
+				fourthHighestDelay = thirdHighestDelay;
 				thirdHighestDelay = delay;
+			}
+			else if(fourthHighestDelay === null || delay >= fourthHighestDelay) {
+				fourthHighestDelay = delay;
 			}
 		}
 	});
 	if(this._delay === null) {
-		this._delay = highestDelay;
+		this._delay = highestDelay + 15;
+		this._additionsWithoutChangingDelay = 0;
 	}
-	else if(thirdHighestDelay !== null) {
-		var idealDelay = Math.min(highestDelay, thirdHighestDelay + 15);
-		if(thirdHighestDelay > this._delay) {
-			this._delay = idealDelay;
+	else if(fourthHighestDelay !== null) {
+		if(fourthHighestDelay > this._delay) {
+			this._delay = secondHighestDelay + 15;
+			this._additionsWithoutChangingDelay = 0;
 		}
-		else if(idealDelay * numDelay - sumDelay > 200) {
-			this._delay = idealDelay;
+		else if(secondHighestDelay + 15 < this._delay) {
+			var gains = numDelay * (this._delay - secondHighestDelay - 15);
+			if(gains > 600 - 13 * Math.min(this._additionsWithoutChangingDelay, 40)) {
+				this._delay = secondHighestDelay + 15;
+				this._additionsWithoutChangingDelay = 0;
+			}
 		}
 	}
 };
@@ -221,9 +236,13 @@ NetworkHandler.prototype.addConnection = function(conn) {
 	this._playerIds.push(playerId);
 	this._players[playerId] = new Connection({
 		socket: socket,
-		maxMessagesSentPerSecond: 10000
+		maxMessagesSentPerSecond: 10000,
+		simulatedLag: {
+			min: 40,
+			max: 65,
+			spikeChance: 0.03
+		}
 	});
-	this._players[playerId].simulateIncomingLag(120, 180, 0.05);
 	this._players[playerId].onReceive(function(message) {
 		if(message.type === 'COMMAND') {
 			self._receiveCommandCallbacks.forEach(function(callback) {

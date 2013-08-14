@@ -262,6 +262,12 @@ var GameCommon = (function() {
 		this._simulatedLagMax = 0;
 		this._simulatedLagSpikeChance = 0;
 		this._lastLaggedMessageTime = null;
+		if(params.simulatedLag) {
+			this._isSimulatingLag = true;
+			this._simulatedLagMin = params.simulatedLag.min;
+			this._simulatedLagMax = params.simulatedLag.max;
+			this._simulatedLagSpikeChance = params.simulatedLag.spikeChance;
+		}
 
 		//socket
 		this._socket = params.socket;
@@ -374,12 +380,6 @@ var GameCommon = (function() {
 	};
 	Connection.prototype.onDisconnect = function(callback) {
 		this._socket.on('disconnect', callback);
-	};
-	Connection.prototype.simulateIncomingLag = function(minLag, maxLag, chanceOfSpike) {
-		this._isSimulatingLag = true;
-		this._simulatedLagMin = minLag;
-		this._simulatedLagMax = maxLag;
-		this._simulatedLagSpikeChance = chanceOfSpike;
 	};
 
 

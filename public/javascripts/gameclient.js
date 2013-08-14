@@ -230,7 +230,12 @@ var GameClient = (function() {
 		var self = this;
 		this._conn = new Connection({
 			socket: new Socket(),
-			maxMessagesSentPerSecond: 10000
+			maxMessagesSentPerSecond: 10000,
+			simulatedLag: {
+				min: 40,
+				max: 65,
+				spikeChance: 0.03
+			}
 		});
 		this._receiveDeltaCallbacks = [];
 		this._receiveStateCallbacks = [];
