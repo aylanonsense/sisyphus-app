@@ -41,8 +41,24 @@ var GameCommon = (function() {
 		this._timeToStateStorage = this._stateStorageFreq;
 		this._timeOfLastUpdate = null;
 		this._pauseTimeRemaining = 0;
+		this._timeUntilSpeedReverts = 0;
+		this._timeMultiplier = 1.00;
+		this._timeOfLastNow = null;
+		this._gameTimeOfLastNow = null;
 	}
 	GamePlayer.prototype.update = function(ms) {
+		if(this._timeUntilSpeedReverts > 0) {
+			if(this._timeUntilSpeedReverts > ms) {
+				this._timeUntilSpeedReverts -= ms;
+				ms *= this._timeMultiplier;
+			}
+			else {
+				ms = this._timeUntilSpeedReverts * this._timeMultiplier + (ms - this._timeUntilSpeedReverts);
+				this._timeUntilSpeedReverts = 0;
+				this._setSpeed(1.00);
+			}
+		}
+		ms *= this._timeMultiplier;
 		if(this._pauseTimeRemaining > 0) {
 			if(this._pauseTimeRemaining > ms) {
 				ms = 0;
@@ -84,6 +100,8 @@ var GameCommon = (function() {
 		}
 		this._earliestDeltaTime = null;
 		this._timeOfLastUpdate = Date.now();
+		this._timeOfLastNow = this._timeOfLastUpdate;
+		this._gameTimeOfLastNow = this._gameTime;
 	};
 	GamePlayer.prototype._rewind = function(time) {
 		for(var i = this._stateHistory.length - 1; i >= 0; i--) {
@@ -98,12 +116,7 @@ var GameCommon = (function() {
 	};
 	GamePlayer.prototype.handleDelta = function(delta, source, time) {
 		if(typeof time === "undefined") {
-			if(this._timeOfLastUpdate === null) {
-				time = 0;
-			}
-			else {
-				time = this._gameTime + (Date.now() - this._timeOfLastUpdate);
-			}
+			time = this.getSplitSecondTime();
 		}
 		var addedDelta = false;
 		for(var i = 0; i < this._deltaHistory.length; i++) {
@@ -149,7 +162,10 @@ var GameCommon = (function() {
 		if(this._timeOfLastUpdate === null) {
 			return this._gameTime;
 		}
-		return this._gameTime + (Date.now() - this._timeOfLastUpdate);
+		var now = Date.now();
+		this._timeOfLastNow = now;
+		this._gameTimeOfLastNow = this._gameTimeOfLastNow + (now - this._timeOfLastNow) * this._timeMultiplier;
+		return this._gameTimeOfLastNow;
 	};
 	GamePlayer.prototype.getState = function() {
 		return this._game.getState();
@@ -164,12 +180,38 @@ var GameCommon = (function() {
 		this._earliestDeltaTime = null;
 		this._timeToStateStorage = this._stateStorageFreq;
 		this._timeOfLastUpdate = null;
+		this._timeMultiplier = 1.00;
+		this._timeOfLastNow = null;
+		this._gameTimeOfLastNow = null;
 	};
 	GamePlayer.prototype.pause = function(pauseTime) {
 		this._pauseTimeRemaining = (pauseTime ? pauseTime : -1);
 	};
 	GamePlayer.prototype.unpause = function() {
 		this._pauseTimeRemaining = 0;
+	};
+	GamePlayer.prototype.slowDown = function(ms, duration) {
+		duration = (duration || 1000);
+		if(ms > duration) {
+			this.pause(duration);
+		}
+		else {
+			this._setSpeed(1 - ms / duration);
+			this._timeUntilSpeedReverts = duration;
+		}
+	};
+	GamePlayer.prototype.speedUp = function(ms, duration) {
+		duration = (duration || 1000);
+		this._setSpeed(1 + ms / duration);
+		this._timeUntilSpeedReverts = duration;
+	};
+	GamePlayer.prototype._setSpeed = function(speed) {
+		if(this._timeOfLastUpdate !== null) {
+			var now = Date.now();
+			this._timeOfLastNow = now;
+			this._gameTimeOfLastNow = this._gameTimeOfLastNow + (now - this._timeOfLastNow) * this._timeMultiplier;
+		}
+		this._timeMultiplier = speed;
 	};
 
 
