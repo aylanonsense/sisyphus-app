@@ -40,8 +40,22 @@ var GameCommon = (function() {
 		this._stateStorageFreq = (params.stateStorageFreq || 250);
 		this._timeToStateStorage = this._stateStorageFreq;
 		this._timeOfLastUpdate = null;
+		this._pauseTimeRemaining = 0;
 	}
 	GamePlayer.prototype.update = function(ms) {
+		if(this._pauseTimeRemaining > 0) {
+			if(this._pauseTimeRemaining > ms) {
+				ms = 0;
+				this._pauseTimeRemaining -= ms;
+			}
+			else {
+				ms -= this._pauseTimeRemaining;
+				this._pauseTimeRemaining = 0;
+			}
+		}
+		else if(this._pauseTimeRemaining === -1) {
+			ms = 0;
+		}
 		var startTime = this._gameTime;
 		var endTime = this._gameTime + ms;
 		if(this._earliestDeltaTime !== null && this._earliestDeltaTime < startTime) {
@@ -150,6 +164,12 @@ var GameCommon = (function() {
 		this._earliestDeltaTime = null;
 		this._timeToStateStorage = this._stateStorageFreq;
 		this._timeOfLastUpdate = null;
+	};
+	GamePlayer.prototype.pause = function(pauseTime) {
+		this._pauseTimeRemaining = (pauseTime ? pauseTime : -1);
+	};
+	GamePlayer.prototype.unpause = function() {
+		this._pauseTimeRemaining = 0;
 	};
 
 
