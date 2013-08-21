@@ -4,6 +4,7 @@ var GameCommon = (function() {
 		update(ms)
 		handleDelta(delta, source, time)
 		getTime()
+		gitSplitSecondTime()
 		getState()
 		setStateAndTime(state, time);
 	Game
@@ -35,15 +36,15 @@ var GameCommon = (function() {
 		this._stateHistory = [];
 		this._startingState = this._game.getState();
 		this._startingTime = this._gameTIme;
-		this._earliestDeltaTime = 0;
-		this._timeToStateStorage = 0;
+		this._earliestDeltaTime = null;
 		this._stateStorageFreq = (params.stateStorageFreq || 250);
+		this._timeToStateStorage = this._stateStorageFreq;
 		this._timeOfLastUpdate = null;
 	}
 	GamePlayer.prototype.update = function(ms) {
 		var startTime = this._gameTime;
 		var endTime = this._gameTime + ms;
-		if(this._earliestDeltaTime !== null && this._earliestDeltaTime < this._gameTime) {
+		if(this._earliestDeltaTime !== null && this._earliestDeltaTime < startTime) {
 			startTime = this._rewind(this._earliestDeltaTime);
 		}
 		var deltas = this._getDeltasBetween(startTime, endTime);
@@ -73,6 +74,7 @@ var GameCommon = (function() {
 	GamePlayer.prototype._rewind = function(time) {
 		for(var i = this._stateHistory.length - 1; i >= 0; i--) {
 			if(this._stateHistory[i].time <= time) {
+				this._stateHistory.splice(i + 1, this._stateHistory.length - i - 1);
 				this._game.setState(this._stateHistory[i].state);
 				return this._stateHistory[i].time;
 			}
@@ -145,6 +147,9 @@ var GameCommon = (function() {
 		this._startingTime = time;
 		this._removeDeltasBefore(time);
 		this._stateHistory = [];
+		this._earliestDeltaTime = null;
+		this._timeToStateStorage = this._stateStorageFreq;
+		this._timeOfLastUpdate = null;
 	};
 
 
