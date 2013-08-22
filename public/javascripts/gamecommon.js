@@ -26,6 +26,9 @@ var GameCommon = (function() {
 		onReceive()
 		onDisconnect()
 		simulateIncomingLag(minLag, maxLag, chanceOfSpike)
+	DelayCalculator
+		addDelay(delay)
+		getDelay()
 */
 
 	function GamePlayer(params) {
@@ -451,10 +454,85 @@ var GameCommon = (function() {
 
 
 
+	function DelayCalculator(params) {
+		params = (params || {});
+		this._msBuffer = (params.msBuffer || 15);
+		this._maxSpikes = (params.maxSpikesToRaiseDelay || 4);
+		this._minGains = (params.minGainsToLowerDelay || 15);
+		this._maxGains = (params.maxGainsToLowerDelay || 25);
+		this._delay = null;
+		this._delays = [];
+		for(var i = 0; i < (params.maxHistory || 20); i++) {
+			this._delays[i] = null;
+		}
+		this._nextDelayIndex = 0;
+		this._additionsWithoutChangingDelay = 0;
+	}
+	DelayCalculator.prototype.getDelay = function() {
+		return this._delay;
+	};
+	DelayCalculator.prototype.addDelay = function(delay) {
+		this._delays[this._nextDelayIndex] = delay;
+		this._nextDelayIndex++;
+		if(this._nextDelayIndex >= this._delays.length) {
+			this._nextDelayIndex = 0;
+		}
+		this._recalculateDelay();
+	};
+	DelayCalculator.prototype._recalculateDelay = function() {
+		this._additionsWithoutChangingDelay++;
+		var topDelays = [];
+		var i, temp;
+		for(i = 0; i < this._maxSpikes; i++) {
+			topDelays[i] = null;
+		}
+		var numDelays = 0;
+		this._delays.forEach(function(delay) {
+			if(delay !== null) {
+				numDelays++;
+				for(i = 0; i < topDelays.length; i++) {
+					if(topDelays[i] === null) {
+						topDelays[i] = delay;
+						break;
+					}
+					else if(topDelays[i] < delay) {
+						temp = topDelays[i];
+						topDelays[i] = delay;
+						delay = temp;
+					}
+				}
+			}
+		});
+		if(this._delay === null) {
+			//if the calculator is just starting out, initialize it to the first delay seen
+			this._delay = topDelays[0] + this._msBuffer;
+			this._additionsWithoutChangingDelay = 0;
+		}
+		else if(topDelays[topDelays.length - 1] !== null) {
+			//raise the baseline if too many delays are above it
+			if(topDelays[topDelays.length - 1] > this._delay) {
+				this._delay = topDelays[0] + this._msBuffer;
+				this._additionsWithoutChangingDelay = 0;
+			}
+			//lower the baseline if the gains are large enough
+			else if(topDelays[0] + this._msBuffer < this._delay) {
+				var gains = numDelays * (this._delay - topDelays[0] - this._msBuffer);
+				var gainsNecessaryToBeWorthIt = this._maxGains - (this._maxGains - this._minGains) * (Math.min(this._additionsWithoutChangingDelay, 2 * this._delays.length) / (2 * this._delays.length));
+				if(gains > gainsNecessaryToBeWorthIt) {
+					this._delay = topDelays[0] + this._msBuffer;
+					this._additionsWithoutChangingDelay = 0;
+				}
+			}
+		}
+	};
+
+
+
 	return {
 		GamePlayer: GamePlayer,
 		Game: Game,
-		Connection: Connection
+		Connection: Connection,
+		DelayCalculator: DelayCalculator
 	};
 })();
 
