@@ -486,10 +486,8 @@ var GameCommon = (function() {
 		for(i = 0; i < this._maxSpikes; i++) {
 			topDelays[i] = null;
 		}
-		var numDelays = 0;
 		this._delays.forEach(function(delay) {
 			if(delay !== null) {
-				numDelays++;
 				for(i = 0; i < topDelays.length; i++) {
 					if(topDelays[i] === null) {
 						topDelays[i] = delay;
@@ -516,7 +514,7 @@ var GameCommon = (function() {
 			}
 			//lower the baseline if the gains are large enough
 			else if(topDelays[0] + this._msBuffer < this._delay) {
-				var gains = numDelays * (this._delay - topDelays[0] - this._msBuffer);
+				var gains = (this._delay - topDelays[0] - this._msBuffer);
 				var gainsNecessaryToBeWorthIt = this._maxGains - (this._maxGains - this._minGains) * (Math.min(this._additionsWithoutChangingDelay, 2 * this._delays.length) / (2 * this._delays.length));
 				if(gains > gainsNecessaryToBeWorthIt) {
 					this._delay = topDelays[0] + this._msBuffer;
