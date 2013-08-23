@@ -3,7 +3,6 @@ var GameClient = (function() {
 	var Game = GameCommon.Game;
 	var Connection = GameCommon.Connection;
 	var DelayCalculator = GameCommon.DelayCalculator;
-	var debug = false;
 
 /*
 	GameRunner
@@ -42,25 +41,19 @@ var GameClient = (function() {
 		this._delayManager = new DelayManager();
 
 		this._renderer.onInputEventFired(function(input) {
-			if(debug) console.log("Received input:", input);
 			self._inputListener.handleInput(input);
 		});
 		this._inputListener.onControl(function(control) {
-			if(debug) console.log("Translated to control:", control);
 			self._controller.handleControl(control);
 		});
 		this._controller.onCommand(function(command) {
 			var time = self._gamePlayer.getSplitSecondTime();
-			if(debug) console.log("Sending command:", command, time);
 			self._networkHandler.sendCommand(command, time);
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
-			if(debug) console.log("Received delta:", delta, time);
 			self._delayManager.manageDelay(self._gamePlayer, time);
-			self._gamePlayer.handleDelta(delta, 'SERVER', time);
 		});
 		this._networkHandler.onReceiveState(function(state, time) {
-			if(debug) console.log("Received state:", state, time);
 			self._gamePlayer.setStateAndTime(state, time);
 		});
 	}

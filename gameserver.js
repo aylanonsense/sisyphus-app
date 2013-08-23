@@ -3,7 +3,6 @@ var GamePlayer = GameCommon.GamePlayer;
 var Game = GameCommon.Game;
 var Connection = GameCommon.Connection;
 var DelayCalculator = GameCommon.DelayCalculator;
-var debug = false;
 
 /*
 	GameRunner
@@ -44,10 +43,6 @@ function GameRunner() {
 		console.log("Player " + playerId + " connected!");
 		var state = self._gamePlayer.getState();
 		var time = self._gamePlayer.getTime();
-		if(debug) {
-			console.log("Sending state at time " + time + ":");
-			console.log(state);
-		}
 		self._players.addPlayer(playerId);
 		self._networkHandler.sendState(playerId, state, time);
 	});
@@ -56,7 +51,6 @@ function GameRunner() {
 		self._players.removePlayer(playerId);
 	});
 	this._networkHandler.onReceiveCommand(function(playerId, command, clientTime) {
-		if(debug) console.log("Received command from player" + playerId + " at " + clientTime + ":", command);
 		var serverTime = self._gamePlayer.getSplitSecondTime();
 		var player = self._players.getPlayer(playerId);
 		player.addDelay(serverTime - clientTime);
@@ -64,10 +58,6 @@ function GameRunner() {
 	});
 	this._controller.onDeltaGenerated(function(delta, time) {
 		time = self._gamePlayer.handleDelta(delta, time);
-		if(debug) {
-			console.log("Sending delta at time " + time + ":");
-			console.log(delta);
-		}
 		self._networkHandler.sendDeltaToAll(delta, time);
 	});
 }
