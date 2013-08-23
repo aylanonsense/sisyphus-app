@@ -232,8 +232,8 @@ var GameClient = (function() {
 			socket: new Socket(),
 			maxMessagesSentPerSecond: 10000,
 			simulatedLag: {
-				min: 40,
-				max: 65,
+				min: 80,
+				max: 120,
 				spikeChance: 0.03
 			}
 		});

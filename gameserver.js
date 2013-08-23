@@ -185,8 +185,8 @@ NetworkHandler.prototype.addConnection = function(conn) {
 		socket: socket,
 		maxMessagesSentPerSecond: 10000,
 		simulatedLag: {
-			min: 40,
-			max: 65,
+			min: 80,
+			max: 120,
 			spikeChance: 0.03
 		}
 	});
