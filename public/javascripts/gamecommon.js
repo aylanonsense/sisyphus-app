@@ -64,8 +64,8 @@ var GameCommon = (function() {
 		ms *= this._timeMultiplier;
 		if(this._pauseTimeRemaining > 0) {
 			if(this._pauseTimeRemaining > ms) {
-				ms = 0;
 				this._pauseTimeRemaining -= ms;
+				ms = 0;
 			}
 			else {
 				ms -= this._pauseTimeRemaining;

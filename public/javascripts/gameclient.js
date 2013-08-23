@@ -2,12 +2,15 @@ var GameClient = (function() {
 	var GamePlayer = GameCommon.GamePlayer;
 	var Game = GameCommon.Game;
 	var Connection = GameCommon.Connection;
+	var DelayCalculator = GameCommon.DelayCalculator;
 	var debug = false;
 
 /*
 	GameRunner
 		start()
 		stop()
+	DelayManager
+		manageDelay()
 	Controller
 		handleControl(control)
 		onCommand(callback)
@@ -36,6 +39,7 @@ var GameClient = (function() {
 		this._controller = new Controller();
 		this._networkHandler = new NetworkHandler();
 		this._gamePlayer = new GamePlayer({ maxRewind: params.maxRewind });
+		this._delayManager = new DelayManager();
 
 		this._renderer.onInputEventFired(function(input) {
 			if(debug) console.log("Received input:", input);
@@ -52,6 +56,7 @@ var GameClient = (function() {
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
 			if(debug) console.log("Received delta:", delta, time);
+			self._delayManager.manageDelay(self._gamePlayer, time);
 			self._gamePlayer.handleDelta(delta, 'SERVER', time);
 		});
 		this._networkHandler.onReceiveState(function(state, time) {
@@ -79,6 +84,16 @@ var GameClient = (function() {
 		if(this._timer !== null) {
 			clearInterval(this._timer);
 			this._timer = null;
+		}
+	};
+
+
+
+	function DelayManager() {}
+	DelayManager.prototype.manageDelay = function(game, time) {
+		var now = game.getSplitSecondTime();
+		if(now > time) {
+			game.pause(now - time);
 		}
 	};
 
