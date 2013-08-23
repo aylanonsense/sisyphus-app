@@ -52,6 +52,7 @@ var GameClient = (function() {
 		});
 		this._networkHandler.onReceiveDelta(function(delta, time) {
 			self._delayManager.manageDelay(self._gamePlayer, time);
+			self._gamePlayer.handleDelta(delta, 'SERVER', time);
 		});
 		this._networkHandler.onReceiveState(function(state, time) {
 			self._gamePlayer.setStateAndTime(state, time);
@@ -82,11 +83,32 @@ var GameClient = (function() {
 
 
 
-	function DelayManager() {}
+	function DelayManager() {
+		this._delayCalc = new DelayCalculator();
+	}
 	DelayManager.prototype.manageDelay = function(game, time) {
 		var now = game.getSplitSecondTime();
-		if(now > time) {
-			game.pause(now - time);
+		var actualDelay = now - time;
+		var prevIdealDelay = this._delayCalc.getDelay();
+		if(actualDelay > 0) {
+			this._delayCalc.addDelay(actualDelay);
+		}
+		else {
+			this._delayCalc.addDelay(0);
+		}
+		var idealDelay = this._delayCalc.getDelay();
+		if(idealDelay !== prevIdealDelay) {
+			var ms;
+			//speed up or skip forward!
+			if(actualDelay > idealDelay) {
+				ms = actualDelay - idealDelay;
+				game.speedUp(ms, 500);
+			}
+			//slow down or pause!
+			else {
+				ms = idealDelay - actualDelay;
+				game.slowDown(ms, 500);
+			}
 		}
 	};
 
