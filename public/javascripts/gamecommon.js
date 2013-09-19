@@ -29,6 +29,8 @@ var GameCommon = (function() {
 	DelayCalculator
 		addDelay(delay)
 		getDelay()
+	DelayCalculatorEvaluator
+		evaluate()
 */
 
 	function GamePlayer(params) {
@@ -619,7 +621,7 @@ var GameCommon = (function() {
 				(results.accuracy.rise.from60to140ms < 0 ? results.accuracy.rise.from60to140ms : 1 / results.accuracy.rise.from60to140ms) +
 				(results.accuracy.rise.from110to200ms < 0 ? results.accuracy.rise.from110to200ms : 1 / results.accuracy.rise.from110to200ms) +
 				(results.accuracy.rise.from60to140msWithoutVariance < 0 ? results.accuracy.rise.from60to140msWithoutVariance : 1 / results.accuracy.rise.from60to140msWithoutVariance)) / 8;
-		results.score = Math.floor(1000 * (0.1 * spikeScore + 0.3 * changeScore + 0.3 * speedScore + 0.3 * accuracyScore))/10;
+		results.score = Math.floor(1000 * (0.1 * spikeScore + 0.3 * changeScore + 0.3 * speedScore + 0.3 * accuracyScore)) / 10;
 
 		return results;
 	};
