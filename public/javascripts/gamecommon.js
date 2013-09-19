@@ -526,11 +526,193 @@ var GameCommon = (function() {
 
 
 
+	function DelayCalculatorEvaluator(Calc) {
+		this._CalculatorClass = Calc;
+	}
+	DelayCalculatorEvaluator.prototype.evaluate = function() {
+		var i, r, d, score;
+		var results = {
+			speed: {
+				rise: {},
+				drop: {}
+			},
+			changes: {
+				rise: {},
+				drop: {}
+			},
+			accuracy: {
+				rise: {},
+				drop: {}
+			},
+			spikes: {}
+		};
+		var delay200ms = [198, 202, 225, 219, 181, 188, 200, 215, 206, 195, 193, 181, 191, 203, 177, 221, 207, 200, 200, 181, 184, 223, 197, 191, 205, 203, 201, 221, 194, 192, 190, 192, 224, 181, 213, 191, 204, 188, 218, 196, 186, 188, 209, 197, 179, 190, 207, 211, 195, 199, 200, 198, 187, 191, 185, 207, 224, 200, 209, 195];
+		var delay140ms = [131, 154, 125, 149, 142, 148, 148, 148, 154, 148, 155, 123, 147, 144, 126, 148, 131, 133, 126, 143, 130, 137, 127, 131, 156, 128, 155, 154, 147, 128, 138, 144, 122, 147, 141, 140, 138, 153, 158, 128, 155, 145, 141, 135, 140, 134, 132, 124, 137, 131, 127, 155, 125, 124, 145, 154, 123, 141, 158, 155];
+		var delay110ms = [97, 108, 116, 93, 123, 125, 123, 121, 115, 100, 92, 122, 127, 96, 120, 102, 111, 118, 103, 125, 96, 126, 102, 110, 101, 107, 129, 129, 128, 91, 114, 111, 96, 111, 106, 106, 106, 110, 108, 91, 94, 104, 122, 127, 90, 109, 116, 125, 122, 119, 108, 118, 111, 93, 93, 120, 126, 116, 118, 129];
+		var delay90ms = [82, 90, 86, 92, 97, 94, 91, 98, 98, 87, 90, 97, 88, 90, 97, 84, 97, 93, 83, 90, 87, 93, 82, 90, 83, 92, 91, 98, 84, 85, 85, 85, 85, 93, 83, 91, 85, 81, 96, 96, 96, 94, 87, 90, 92, 84, 82, 84, 97, 97, 84, 94, 95, 97, 84, 93, 87, 95, 98, 87];
+		var delay80ms = [74, 80, 77, 73, 82, 84, 86, 74, 72, 82, 87, 74, 78, 83, 76, 73, 79, 84, 78, 76, 73, 74, 83, 86, 80, 88, 87, 80, 75, 80, 85, 87, 87, 87, 83, 78, 74, 78, 82, 85, 86, 77, 87, 79, 82, 87, 73, 79, 74, 87, 82, 74, 73, 79, 72, 80, 81, 86, 83, 77];
+		var delay60ms = [54, 63, 67, 59, 65, 63, 55, 55, 57, 54, 58, 57, 58, 65, 54, 56, 66, 65, 56, 63, 55, 53, 56, 59, 67, 54, 53, 59, 56, 63, 66, 58, 54, 63, 62, 60, 62, 56, 56, 55, 59, 53, 56, 54, 66, 54, 59, 64, 63, 63, 54, 62, 57, 66, 64, 61, 58, 65, 56, 59];
+		var delay30ms = [34, 33, 30, 27, 32, 28, 31, 25, 33, 28, 28, 32, 26, 26, 27, 31, 34, 32, 32, 32, 25, 26, 32, 29, 27, 26, 26, 30, 28, 30, 27, 27, 31, 32, 33, 34, 26, 30, 26, 34, 28, 29, 33, 28, 28, 30, 32, 35, 30, 26, 26, 31, 34, 31, 34, 34, 34, 25, 34, 29];
+		var delay15ms = [15, 13, 16, 16, 14, 15, 16, 14, 14, 17, 14, 17, 17, 15, 15, 14, 14, 14, 16, 16, 16, 15, 13, 16, 16, 15, 17, 16, 16, 15, 17, 15, 16, 14, 17, 16, 16, 15, 14, 15, 16, 14, 17, 17, 16, 14, 16, 17, 15, 13, 14, 13, 16, 15, 14, 14, 14, 14, 16, 16];
+
+		//evaluate ability to lower delay quickly in response to drops
+		results.speed.drop.from140to60msWithoutVariance = this._evaluateTrend(140, 60);
+		results.speed.drop.from200to110ms = this._evaluateTrend(200, 110, delay200ms, delay110ms);
+		results.speed.drop.from140to60ms = this._evaluateTrend(140, 60, delay140ms, delay60ms);
+		results.speed.drop.from110to60ms = this._evaluateTrend(110, 60, delay110ms, delay60ms);
+
+		//evaluate ability to increase delay quickly in response to rises
+		results.speed.rise.from60to140msWithoutVariance = this._evaluateTrend(60, 140);
+		results.speed.rise.from110to200ms = this._evaluateTrend(110, 200, delay110ms, delay200ms);
+		results.speed.rise.from60to140ms = this._evaluateTrend(60, 140, delay60ms, delay140ms);
+		results.speed.rise.from60to110ms = this._evaluateTrend(60, 80, delay60ms, delay110ms);
+
+		//evaluate ability to ignore and detect spikes
+		results.spikes.ignoreTwoLargeSpikes = !this._evaluateSpike(delay110ms, [800, 800]);
+
+		//evaluate ability to increase delay in few changes after drops
+		results.changes.drop.from140to60msWithoutVariance = this._evaluateNumChanges(140, 60);
+		results.changes.drop.from200to110ms = this._evaluateNumChanges(200, 110, delay200ms, delay110ms);
+		results.changes.drop.from140to60ms = this._evaluateNumChanges(140, 60, delay140ms, delay60ms);
+		results.changes.drop.from110to60ms = this._evaluateNumChanges(110, 60, delay110ms, delay60ms);
+
+		//evaluate ability to increase delay in few changes after rises
+		results.changes.rise.from60to140msWithoutVariance = this._evaluateNumChanges(60, 140);
+		results.changes.rise.from110to200ms = this._evaluateNumChanges(110, 200, delay110ms, delay200ms);
+		results.changes.rise.from60to140ms = this._evaluateNumChanges(60, 140, delay60ms, delay140ms);
+		results.changes.rise.from60to110ms = this._evaluateNumChanges(60, 110, delay60ms, delay110ms);
+
+		//evaluate accuracy of choosing delay after drops
+		results.accuracy.drop.from140to60msWithoutVariance = this._evaluateAccuracy(140, 60);
+		results.accuracy.drop.from200to110ms = this._evaluateAccuracy(200, 110, delay200ms, delay110ms);
+		results.accuracy.drop.from140to60ms = this._evaluateAccuracy(140, 60, delay140ms, delay60ms);
+		results.accuracy.drop.from110to60ms = this._evaluateAccuracy(110, 60, delay110ms, delay60ms);
+
+		//evaluate accuracy of choosing delay after rises
+		results.accuracy.rise.from60to140msWithoutVariance = this._evaluateAccuracy(60, 140);
+		results.accuracy.rise.from110to200ms = this._evaluateAccuracy(110, 200, delay110ms, delay200ms);
+		results.accuracy.rise.from60to140ms = this._evaluateAccuracy(60, 140, delay60ms, delay140ms);
+		results.accuracy.rise.from60to110ms = this._evaluateAccuracy(60, 110, delay60ms, delay110ms);
+
+		var spikeScore = (results.spikes.ignoreTwoLargeSpikes ? 1 : 0);
+		var changeScore = (1 / results.changes.drop.from110to60ms +
+				1 / results.changes.drop.from140to60ms +
+				1 / results.changes.drop.from140to60msWithoutVariance +
+				1 / results.changes.drop.from200to110ms +
+				1 / results.changes.rise.from60to110ms +
+				1 / results.changes.rise.from60to140ms +
+				1 / results.changes.rise.from60to140msWithoutVariance +
+				1 / results.changes.rise.from110to200ms) / 8;
+		var speedScore = (1 / results.speed.drop.from110to60ms +
+				1 / results.speed.drop.from140to60ms +
+				1 / results.speed.drop.from140to60msWithoutVariance +
+				1 / results.speed.drop.from200to110ms +
+				1 / results.speed.rise.from60to110ms +
+				1 / results.speed.rise.from60to140ms +
+				1 / results.speed.rise.from60to140msWithoutVariance +
+				1 / results.speed.rise.from110to200ms) / 8;
+		var accuracyScore = ((results.accuracy.drop.from110to60ms < 0 ? results.accuracy.drop.from110to60ms : 1 / results.accuracy.drop.from110to60ms) +
+				(results.accuracy.drop.from140to60ms < 0 ? results.accuracy.drop.from140to60ms : 1 / results.accuracy.drop.from140to60ms) +
+				(results.accuracy.drop.from140to60msWithoutVariance < 0 ? results.accuracy.drop.from140to60msWithoutVariance : 1 / results.accuracy.drop.from140to60msWithoutVariance) +
+				(results.accuracy.drop.from200to110ms < 0 ? results.accuracy.drop.from200to110ms : 1 / results.accuracy.drop.from200to110ms) +
+				(results.accuracy.rise.from60to110ms < 0 ? results.accuracy.rise.from60to110ms : 1 / results.accuracy.rise.from60to110ms) +
+				(results.accuracy.rise.from60to140ms < 0 ? results.accuracy.rise.from60to140ms : 1 / results.accuracy.rise.from60to140ms) +
+				(results.accuracy.rise.from110to200ms < 0 ? results.accuracy.rise.from110to200ms : 1 / results.accuracy.rise.from110to200ms) +
+				(results.accuracy.rise.from60to140msWithoutVariance < 0 ? results.accuracy.rise.from60to140msWithoutVariance : 1 / results.accuracy.rise.from60to140msWithoutVariance)) / 8;
+		results.score = Math.floor(1000 * (0.1 * spikeScore + 0.3 * changeScore + 0.3 * speedScore + 0.3 * accuracyScore))/10;
+
+		return results;
+	};
+	DelayCalculatorEvaluator.prototype._evaluateTrend = function(diff1, diff2, arr1, arr2) {
+		this._initCalc();
+		for(i = 0; i < (arr1 ? arr1.length : 60); i++) {
+			this._addDelay(arr1 ? arr1[i] : diff1);
+		}
+		this._resetMetrics();
+		for(i = 0; i < (arr2 ? arr2.length : 60); i++) {
+			this._addDelay(arr2 ? arr2[i] : diff2);
+			if(this._sumDelta <= (diff2 - diff1) * 0.7) {
+				return i + 1;
+			}
+		}
+		return null;
+	};
+	DelayCalculatorEvaluator.prototype._evaluateSpike = function(arr, spikes) {
+		this._initCalc();
+		var sum = 0;
+		for(i = 0; i < arr.length; i++) {
+			this._addDelay(arr[i]);
+			sum += arr[i];
+		}
+		var avg = sum / arr.length;
+		this._resetMetrics();
+		var spikeSum = 0;
+		for(i = 0; i < spikes.length; i++) {
+			this._addDelay(spikes[i]);
+			spikeSum += spikes[i];
+		}
+		var spikeAvg = spikeSum / spikes.length;
+		if(spikeAvg > avg) {
+			return (spikeAvg - avg) * 0.7 < this._sumDelta;
+		}
+		else {
+			return (spikeAvg - avg) * 0.7 > this._sumDelta;
+		}
+	};
+	DelayCalculatorEvaluator.prototype._evaluateNumChanges = function(diff1, diff2, arr1, arr2) {
+		this._initCalc();
+		for(i = 0; i < (arr1 ? arr1.length : 60); i++) {
+			this._addDelay(arr1 ? arr1[i] : diff1);
+		}
+		this._resetMetrics();
+		for(i = 0; i < (arr2 ? arr2.length : 60); i++) {
+			this._addDelay(arr2 ? arr2[i] : diff2);
+		}
+		return this._numChanges;
+	};
+	DelayCalculatorEvaluator.prototype._evaluateAccuracy = function(diff1, diff2, arr1, arr2) {
+		this._initCalc();
+		for(i = 0; i < (arr1 ? arr1.length : 60); i++) {
+			this._addDelay(arr1 ? arr1[i] : diff1);
+		}
+		this._resetMetrics();
+		for(i = 0; i < (arr2 ? arr2.length : 60); i++) {
+			this._addDelay(arr2 ? arr2[i] : diff2);
+		}
+		return (this._sumDelta)/(diff2 - diff1);
+	};
+	DelayCalculatorEvaluator.prototype._initCalc = function() {
+		this._calc = new this._CalculatorClass();
+		this._resetMetrics();
+	};
+	DelayCalculatorEvaluator.prototype._addDelay = function(delay) {
+		var result = {
+			before: this._calc.getDelay()
+		};
+		this._calc.addDelay(delay);
+		result.after = this._calc.getDelay();
+		result.changed = (result.before !== result.after);
+		result.dropped = (result.before !== null && result.before > result.after);
+		result.rose = (result.before !== null && result.before < result.after);
+		result.delta = (result.before === null ? result.after : result.after - result.before);
+		result.initialized = (result.before === null);
+		this._sumDelta += result.delta;
+		this._numChanges += (result.changed ? 1 : 0 );
+		return result;
+	};
+	DelayCalculatorEvaluator.prototype._resetMetrics = function() {
+		this._sumDelta = 0;
+		this._numChanges = 0;
+	};
+
+
+
 	return {
 		GamePlayer: GamePlayer,
 		Game: Game,
 		Connection: Connection,
-		DelayCalculator: DelayCalculator
+		DelayCalculator: DelayCalculator,
+		DelayCalculatorEvaluator: DelayCalculatorEvaluator
 	};
 })();
 

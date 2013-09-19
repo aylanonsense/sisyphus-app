@@ -3,6 +3,7 @@ var GameClient = (function() {
 	var Game = GameCommon.Game;
 	var Connection = GameCommon.Connection;
 	var DelayCalculator = GameCommon.DelayCalculator;
+	var DelayCalculatorEvaluator = GameCommon.DelayCalculatorEvaluator;
 
 /*
 	GameRunner
@@ -97,17 +98,20 @@ var GameClient = (function() {
 			this._delayCalc.addDelay(0);
 		}
 		var idealDelay = this._delayCalc.getDelay();
+		//console.log(actualDelay, now, time, idealDelay);
 		if(idealDelay !== prevIdealDelay) {
 			var ms;
 			//speed up or skip forward!
 			if(actualDelay > idealDelay) {
 				ms = actualDelay - idealDelay;
 				game.speedUp(ms, 500);
+				//console.log("Speeding game up by " + ms);
 			}
 			//slow down or pause!
 			else {
 				ms = idealDelay - actualDelay;
 				game.slowDown(ms, 500);
+				//console.log("Slowing game down by " + ms);
 			}
 		}
 	};
@@ -304,6 +308,11 @@ var GameClient = (function() {
 	Socket.prototype.on = function(messageType, callback) {
 		this._socket.on(messageType, callback);
 	};
+
+
+
+	console.log("Running Delay Calculator Test");
+	console.log((new DelayCalculatorEvaluator(DelayCalculator)).evaluate());
 
 
 
