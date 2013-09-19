@@ -531,14 +531,88 @@ var GameCommon = (function() {
 	function DelayCalculator2(params) {
 		this._historicalDelays = [];
 		this._delay = 100;
+		this._spikeProfiles = [
+			{ spikes: 5, over: 15 },
+			{ spikes: 4, over: 8 },
+			{ spikes: 3, over: 4 }
+		];
+		this._maxHistoricalDelays = 0;
+		for(var i = 0; i < this._spikeProfiles.length; i++) {
+			if(this._spikeProfiles[i].over > this._maxHistoricalDelays) {
+				this._maxHistoricalDelays = this._spikeProfiles[i].over;
+			}
+		}
 	}
 	DelayCalculator2.prototype.getDelay = function() {
 		return this._delay;
 	};
 	DelayCalculator2.prototype.addDelay = function(delay) {
 		this._historicalDelays.push(delay);
-		if(this._historicalDelays.length > 20) {
+		if(this._historicalDelays.length > this._maxHistoricalDelays) {
 			this._historicalDelays.splice(0, 1);
+		}
+		this._recalculateDelay(delay);
+	};
+	DelayCalculator2.prototype._recalculateDelay = function(mostRecentDelay) {
+		var i, sortedDelays, delay;
+		var sortFn = function(a, b) { return a - b; };
+
+		if(this._historicalDelays.length === 1) {
+			this._delay = this._historicalDelays[0];
+		}
+
+		//we may need to raise the delay
+		else if(mostRecentDelay > this._delay) {
+			for(i = 0; i < this._spikeProfiles.length; i++) {
+				var delays = [];
+				var spikes = 0;
+				for(var j = 0; j < this._spikeProfiles[i].over && j < this._historicalDelays.length; j++) {
+					delay = this._historicalDelays[this._historicalDelays.length - 1 - j];
+					if(delay > this._delay) {
+						spikes++;
+					}
+					delays.push(delay);
+				}
+				if(spikes >= this._spikeProfiles[i].spikes) {
+
+					//there are enough spikes to warrant raising the delay
+					sortedDelays = delays.sort(sortFn);
+					var idealDelay;
+					if(sortedDelays.length === 1) {
+						idealDelay = sortedDelays[0];
+					}
+					else {
+						var smallestSpike = sortedDelays[sortedDelays.length - 2]; //sortedDelays[sortedDelays.length - this._spikeProfiles[i].spikes];
+						var largestNonSpike = sortedDelays[sortedDelays.length - 3]; //sortedDelays[sortedDelays.length - this._spikeProfiles[i].spikes - 1]
+						idealDelay = Math.min(smallestSpike, 1.25 * largestNonSpike);
+						this._delay = idealDelay;
+						break;
+					}
+				}
+			}
+		}
+
+		//we may need to lower the delay
+		else if(mostRecentDelay < this._delay && this._historicalDelays.length > 2) {
+			var max1 = 0;
+			var max2 = 0;
+			var max3 = 0;
+			for(i = 0; i < this._historicalDelays.length; i++) {
+				delay = this._historicalDelays[i];
+				if(delay >= max1) {
+					max3 = max2;
+					max2 = max1;
+					max1 = delay;
+				}
+				else if(delay >= max2) {
+					max3 = max2;
+					max2 = delay;
+				}
+				else if(delay >= max3) {
+					max3 = delay;
+				}
+			}
+			this._delay = Math.min(max2, 1.25 * max3);
 		}
 	};
 
@@ -612,8 +686,8 @@ var GameCommon = (function() {
 		results.accuracy.rise.from60to140ms = this._evaluateAccuracy(60, 140, delay60ms, delay140ms);
 		results.accuracy.rise.from60to110ms = this._evaluateAccuracy(60, 110, delay60ms, delay110ms);
 
-		var spikeScore = (results.spikes.ignoreTwoLargeSpikes ? 1 : 0);
-		var changeScore = ((results.changes.drop.from110to60ms === 0 ? 0 : 1 / results.changes.drop.from110to60ms) +
+		results.spikes.score = (results.spikes.ignoreTwoLargeSpikes ? 1 : 0);
+		results.changes.score = ((results.changes.drop.from110to60ms === 0 ? 0 : 1 / results.changes.drop.from110to60ms) +
 				(results.changes.drop.from140to60ms === 0 ? 0 : 1 / results.changes.drop.from140to60ms) +
 				(results.changes.drop.from140to60msWithoutVariance === 0 ? 0 : 1 / results.changes.drop.from140to60msWithoutVariance) +
 				(results.changes.drop.from200to110ms === 0 ? 0 : 1 / results.changes.drop.from200to110ms) +
@@ -621,7 +695,7 @@ var GameCommon = (function() {
 				(results.changes.rise.from60to140ms === 0 ? 0 : 1 / results.changes.rise.from60to140ms) +
 				(results.changes.rise.from60to140msWithoutVariance === 0 ? 0 : 1 / results.changes.rise.from60to140msWithoutVariance) +
 				(results.changes.rise.from110to200ms === 0 ? 0 : 1 / results.changes.rise.from110to200ms)) / 8;
-		var speedScore = ((results.speed.drop.from110to60ms === 0 ? 0 : 1 / results.speed.drop.from110to60ms) +
+		results.speed.score = ((results.speed.drop.from110to60ms === 0 ? 0 : 1 / results.speed.drop.from110to60ms) +
 				(results.speed.drop.from140to60ms === 0 ? 0 : 1 / results.speed.drop.from140to60ms) +
 				(results.speed.drop.from140to60msWithoutVariance === 0 ? 0 : 1 / results.speed.drop.from140to60msWithoutVariance) +
 				(results.speed.drop.from200to110ms === 0 ? 0 : 1 / results.speed.drop.from200to110ms) +
@@ -629,7 +703,7 @@ var GameCommon = (function() {
 				(results.speed.rise.from60to140ms === 0 ? 0 : 1 / results.speed.rise.from60to140ms) +
 				(results.speed.rise.from60to140msWithoutVariance === 0 ? 0 : 1 / results.speed.rise.from60to140msWithoutVariance) +
 				(results.speed.rise.from110to200ms === 0 ? 0 : 1 / results.speed.rise.from110to200ms)) / 8;
-		var accuracyScore = ((results.accuracy.drop.from110to60ms < 1 ? results.accuracy.drop.from110to60ms : 1 / results.accuracy.drop.from110to60ms) +
+		results.accuracy.score = ((results.accuracy.drop.from110to60ms < 1 ? results.accuracy.drop.from110to60ms : 1 / results.accuracy.drop.from110to60ms) +
 				(results.accuracy.drop.from140to60ms < 1 ? results.accuracy.drop.from140to60ms : 1 / results.accuracy.drop.from140to60ms) +
 				(results.accuracy.drop.from140to60msWithoutVariance < 1 ? results.accuracy.drop.from140to60msWithoutVariance : 1 / results.accuracy.drop.from140to60msWithoutVariance) +
 				(results.accuracy.drop.from200to110ms < 1 ? results.accuracy.drop.from200to110ms : 1 / results.accuracy.drop.from200to110ms) +
@@ -637,7 +711,7 @@ var GameCommon = (function() {
 				(results.accuracy.rise.from60to140ms < 1 ? results.accuracy.rise.from60to140ms : 1 / results.accuracy.rise.from60to140ms) +
 				(results.accuracy.rise.from110to200ms < 1 ? results.accuracy.rise.from110to200ms : 1 / results.accuracy.rise.from110to200ms) +
 				(results.accuracy.rise.from60to140msWithoutVariance < 1 ? results.accuracy.rise.from60to140msWithoutVariance : 1 / results.accuracy.rise.from60to140msWithoutVariance)) / 8;
-		results.score = Math.floor(1000 * (0.1 * spikeScore + 0.3 * changeScore + 0.3 * speedScore + 0.3 * accuracyScore)) / 10;
+		results.score = Math.floor(1000 * (0.1 * results.spikes.score + 0.3 * results.changes.score + 0.3 * results.speed.score + 0.3 * results.accuracy.score)) / 10;
 
 		return results;
 	};
