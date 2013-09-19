@@ -3,6 +3,7 @@ var GameClient = (function() {
 	var Game = GameCommon.Game;
 	var Connection = GameCommon.Connection;
 	var DelayCalculator = GameCommon.DelayCalculator;
+	var DelayCalculator2 = GameCommon.DelayCalculator2;
 	var DelayCalculatorEvaluator = GameCommon.DelayCalculatorEvaluator;
 
 /*
@@ -311,8 +312,10 @@ var GameClient = (function() {
 
 
 
-	console.log("Running Delay Calculator Test");
+	console.log("Running DelayCalculator evaluation");
 	console.log((new DelayCalculatorEvaluator(DelayCalculator)).evaluate());
+	console.log("Running DelayCalculator2 evaluation");
+	console.log((new DelayCalculatorEvaluator(DelayCalculator2)).evaluate());
 
 
 
