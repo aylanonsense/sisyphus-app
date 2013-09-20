@@ -75,7 +75,7 @@ var GameClient = (function() {
 	};
 	GameRunner.prototype._update = function(ms) {
 		this._gamePlayer.update(ms);
-		this._renderer.render(this._gamePlayer.getState());
+		this._renderer.render(this._gamePlayer.getState(), this._gamePlayer.getSplitSecondTime());
 	};
 	GameRunner.prototype.stop = function() {
 		if(this._timer !== null) {
@@ -167,7 +167,7 @@ var GameClient = (function() {
 	Renderer.prototype.setRenderTarget = function(ele) {
 		ele.append(this._root);
 	};
-	Renderer.prototype.render = function(state) {
+	Renderer.prototype.render = function(state, time) {
 		var self = this;
 		this._root.empty();
 		state.entities.forEach(function(entity) {
@@ -177,6 +177,20 @@ var GameClient = (function() {
 				.css('background-color', entity.color)
 				.appendTo(self._root);
 		});
+		var t = '' + (Math.floor(time) / 1000);
+		if(t.indexOf('.') === -1) {
+			t = t + '.000';
+		}
+		while(t.length - t.indexOf('.') < 4) {
+			t = t + '0';
+		}
+		$('<p>' + t + '</p>').css({
+			position: 'absolute',
+			top: 0,
+			right: 0,
+			padding: 0,
+			margin: 0
+		}).appendTo(this._root);
 	};
 	Renderer.prototype.onInputEventFired = function(callback) {
 		this._inputCallbacks.push(callback);
