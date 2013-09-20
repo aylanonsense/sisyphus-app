@@ -5,6 +5,7 @@ var GameClient = (function() {
 	var DelayCalculator = GameCommon.DelayCalculator;
 	var DelayCalculator2 = GameCommon.DelayCalculator2;
 	var DelayCalculatorEvaluator = GameCommon.DelayCalculatorEvaluator;
+	var DelayVisualizer = GameCommon.DelayVisualizer;
 
 /*
 	GameRunner
@@ -312,13 +313,6 @@ var GameClient = (function() {
 
 
 
-	console.log("Running DelayCalculator evaluation");
-	console.log((new DelayCalculatorEvaluator(DelayCalculator)).evaluate());
-	console.log("Running DelayCalculator2 evaluation");
-	console.log((new DelayCalculatorEvaluator(DelayCalculator2)).evaluate());
-
-
-
 	return GameRunner;
 })();
 
@@ -328,4 +322,8 @@ $(document).ready(function() {
 		maxRewind: 100000
 	});
 	game.start();
+
+
+
+	new GameCommon.DelayCalculatorTester([ GameCommon.DelayCalculator ], $('<div></div>').appendTo('body'), 150, 200);
 });

@@ -536,12 +536,15 @@ var GameCommon = (function() {
 			{ spikes: 4, over: 8 },
 			{ spikes: 3, over: 4 }
 		];
-		this._maxHistoricalDelays = 0;
+		this._delaysRelevantToLowering = 3;
+		this._maxHistoricalDelays = this._delaysRelevantToLowering;
 		for(var i = 0; i < this._spikeProfiles.length; i++) {
 			if(this._spikeProfiles[i].over > this._maxHistoricalDelays) {
 				this._maxHistoricalDelays = this._spikeProfiles[i].over;
 			}
 		}
+		this._gainsRequiredToLower = [10];//[300, 150, 100, 75, 60, 50, 45, 40, 35, 30, 25, 20, 18, 16, 14, 12, 10];//[75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 28, 26, 24, 22, 20];
+		this._delaysSinceLastChange = 0;
 	}
 	DelayCalculator2.prototype.getDelay = function() {
 		return this._delay;
@@ -554,17 +557,20 @@ var GameCommon = (function() {
 		this._recalculateDelay(delay);
 	};
 	DelayCalculator2.prototype._recalculateDelay = function(mostRecentDelay) {
-		var i, sortedDelays, delay;
+		var i, sortedDelays, delay, delays, idealDelay;
 		var sortFn = function(a, b) { return a - b; };
+
+		this._delaysSinceLastChange++;
 
 		if(this._historicalDelays.length === 1) {
 			this._delay = this._historicalDelays[0];
+			this._delaysSinceLastChange = 0;
 		}
 
 		//we may need to raise the delay
 		else if(mostRecentDelay > this._delay) {
 			for(i = 0; i < this._spikeProfiles.length; i++) {
-				var delays = [];
+				delays = [];
 				var spikes = 0;
 				for(var j = 0; j < this._spikeProfiles[i].over && j < this._historicalDelays.length; j++) {
 					delay = this._historicalDelays[this._historicalDelays.length - 1 - j];
@@ -577,28 +583,34 @@ var GameCommon = (function() {
 
 					//there are enough spikes to warrant raising the delay
 					sortedDelays = delays.sort(sortFn);
-					var idealDelay;
 					if(sortedDelays.length === 1) {
 						idealDelay = sortedDelays[0];
 					}
 					else {
 						var smallestSpike = sortedDelays[sortedDelays.length - 2]; //sortedDelays[sortedDelays.length - this._spikeProfiles[i].spikes];
 						var largestNonSpike = sortedDelays[sortedDelays.length - 3]; //sortedDelays[sortedDelays.length - this._spikeProfiles[i].spikes - 1]
-						idealDelay = Math.min(smallestSpike, 1.25 * largestNonSpike);
-						this._delay = idealDelay;
-						break;
+						idealDelay = Math.min(1.1 * smallestSpike, 1.25 * largestNonSpike);
 					}
+					this._delay = idealDelay;
+					this._delaysSinceLastChange = 0;
+					break;
 				}
 			}
 		}
 
 		//we may need to lower the delay
 		else if(mostRecentDelay < this._delay && this._historicalDelays.length > 2) {
+			delays = [];
+			for(i = 0; i < this._delaysRelevantToLowering && i < this._historicalDelays.length; i++) {
+				delays.push(this._historicalDelays[this._historicalDelays.length - 1 - i]);
+			}
+
+			//decide on ideal delay
 			var max1 = 0;
 			var max2 = 0;
 			var max3 = 0;
-			for(i = 0; i < this._historicalDelays.length; i++) {
-				delay = this._historicalDelays[i];
+			for(i = 0; i < delays.length; i++) {
+				delay = delays[i];
 				if(delay >= max1) {
 					max3 = max2;
 					max2 = max1;
@@ -612,9 +624,279 @@ var GameCommon = (function() {
 					max3 = delay;
 				}
 			}
-			this._delay = Math.min(max2, 1.25 * max3);
+			idealDelay = Math.min(1.1 * max2, 1.25 * max3);
+
+			if(idealDelay < this._delay) {
+				//calc gains of new ideal delay
+				var gains = 0;
+				for(i = 0; i < this._delaysRelevantToLowering && i < delays.length; i++) {
+					delay = delays[delays.length - 1 - i];
+					if(delay < idealDelay) {
+						gains += this._delay - idealDelay;
+					}
+					else if(delay < this._delay) {
+						gains += this._delay - delay;
+					}
+				}
+				var avgGains = gains / Math.min(this._delaysRelevantToLowering, delays.length);
+
+				//change if gains are good enough
+				var gainsNecessaryToBeWorthIt;
+				if(this._delaysSinceLastChange - 1 >= this._gainsRequiredToLower.length) {
+					gainsNecessaryToBeWorthIt = this._gainsRequiredToLower[this._gainsRequiredToLower.length - 1];
+				}
+				else {
+					gainsNecessaryToBeWorthIt = this._gainsRequiredToLower[this._delaysSinceLastChange - 1];
+				}
+
+				if(avgGains > gainsNecessaryToBeWorthIt) {
+					this._delay = idealDelay;
+					this._delaysSinceLastChange = 0;
+				}
+			}
 		}
 	};
+
+
+
+	function DelayCalculator3(params) {
+		this._historicalDelays = [];
+		this._maxHistory = 20;
+		this._delay = 100;
+		this._delaysToBaseSuggestionOn = 8;
+		this._prevSuggestion = null;
+		this._riseReqdToChange = [200, 120, 50, 15, 10, 5];
+		this._riseReqdToChangeIfStable = [80, 50, 25, 15, 10, 5];
+		this._fallReqdToChange = [300, 180, 100, 80, 50, 25, 10, 5];
+		this._fallReqdToChangeIfStable = [140, 80, 50, 25, 15, 10, 5];
+		this._mismatchLowerBound = [0.9];
+		this._mismatchUpperBound = [1.1];
+		this._delaysSinceLastChange = 0;
+		this._numRecentMismatches = 0;
+		this._prevWasMismatch = false;
+	}
+	DelayCalculator3.prototype.getDelay = function() {
+		return this._delay;
+	};
+	DelayCalculator3.prototype.addDelay = function(delay) {
+		this._historicalDelays.push(delay);
+		if(this._historicalDelays.length > this._maxHistory) {
+			this._historicalDelays.splice(0, 1);
+		}
+		this._recalculateDelay(delay);
+	};
+	DelayCalculator3.prototype._recalculateDelay = function(mostRecentDelay) {
+		var i, suggestion, max1, max2, max3, max4, max5, sum, nonSpikeAvg;
+		if(this._historicalDelays.length <= this._delaysToBaseSuggestionOn) {
+			this._delay = Math.floor(this._historicalDelays[0]);
+		}
+		else {
+			//generate suggestion
+			max1 = 0;
+			max2 = 0;
+			max3 = 0;
+			sum = 0;
+			for(i = 1; i <= this._delaysToBaseSuggestionOn; i++) {
+				if(this._prev(i) > max1) {
+					max3 = max2;
+					max2 = max1;
+					max1 = this._prev(i);
+				}
+				else if(this._prev(i) > max2) {
+					max3 = max2;
+					max2 = this._prev(i);
+				}
+				else if(this._prev(i) > max3) {
+					max3 = this._prev(i);
+				}
+				sum += this._prev(i);
+			}
+			nonSpikeAvg = (sum - max1 - max2) / (this._delaysToBaseSuggestionOn - 2);
+			if(max1 < 1.25 * nonSpikeAvg) {
+				suggestion = max1;
+			}
+			else if(max2 < 1.25 * nonSpikeAvg) {
+				suggestion = max2;
+			}
+			else {
+				suggestion = max3;
+			}
+
+			//raise suggestion if it's too low and would require significant rewinds
+			max1 = 0;
+			max2 = 0;
+			max3 = 0;
+			max4 = 0;
+			sum = 0;
+			for(i = 1; i <= this._historicalDelays.length; i++) {
+				if(this._prev(i) > max1) {
+					max4 = max3;
+					max3 = max2;
+					max2 = max1;
+					max1 = this._prev(i);
+				}
+				else if(this._prev(i) > max2) {
+					max4 = max3;
+					max3 = max2;
+					max2 = this._prev(i);
+				}
+				else if(this._prev(i) > max3) {
+					max4 = max3;
+					max3 = this._prev(i);
+				}
+				else if(this._prev(i) > max4) {
+					max4 = this._prev(i);
+				}
+				sum += this._prev(i);
+			}
+			if(max4 > suggestion) {
+				suggestion = max4;
+			}
+			if(max3 < 1.25 * nonSpikeAvg && max3 > suggestion) {
+				suggestion = max3;
+			}
+
+			//the suggestion can't be less than the most recent delay
+			if(suggestion < this._delay && suggestion < mostRecentDelay) {
+				suggestion = Math.min(this._delay, mostRecentDelay);
+			}
+
+			//determine if suggestion is stable
+			var isStable = (this._prevSuggestion !== null && 0.9 * suggestion < this._prevSuggestion && this._prevSuggestion < 1.1 * suggestion);
+
+			//determine if the delta is large enough to warrant a change
+			var deltaReqd;
+			if(isStable) {
+				if(suggestion < this._delay) {
+					deltaReqd = this._fallReqdToChangeIfStable[Math.min(this._numRecentMismatches, this._fallReqdToChangeIfStable.length - 1)];
+				}
+				else {
+					deltaReqd = this._riseReqdToChangeIfStable[Math.min(this._numRecentMismatches, this._riseReqdToChangeIfStable.length - 1)];
+				}
+			}
+			else {
+				if(suggestion < this._delay) {
+					deltaReqd = this._fallReqdToChange[Math.min(this._numRecentMismatches, this._fallReqdToChange.length - 1)];
+				}
+				else {
+					deltaReqd = this._riseReqdToChange[Math.min(this._numRecentMismatches, this._riseReqdToChange.length - 1)];
+				}
+			}
+			var delta = suggestion - this._delay;
+			if(delta < 0) {
+				delta *= -1;
+			}
+			if(delta > deltaReqd) {
+				//change to the suggested delay
+				this._delay = Math.floor(suggestion);
+				this._prevSuggestion = null;
+				this._delaysSinceLastChange = 0;
+				this._numRecentMismatches = 0;
+				this._prevWasMismatch = false;
+			}
+			else {
+				//maintain current delay
+				this._prevSuggestion = suggestion;
+				if(suggestion < this._mismatchLowerBound[Math.min(this._mismatchLowerBound.length - 1, this._delaysSinceLastChange)] * this._delay || suggestion > this._mismatchUpperBound[Math.min(this._mismatchUpperBound.length - 1, this._delaysSinceLastChange)] * this._delay) {
+					this._numRecentMismatches++;
+					this._prevWasMismatch = true;
+				}
+				else {
+					if(!this._prevWasMismatch) {
+						numRecentMismatches = 0;
+					}
+					this._prevWasMismatch = false;
+				}
+				this._delaysSinceLastChange++;
+			}
+		}
+	};
+	DelayCalculator3.prototype._prev = function(delta) {
+		if(delta > this._historicalDelays.length) {
+			return null;
+		}
+		return this._historicalDelays[this._historicalDelays.length - 1 - delta];
+	};
+
+
+
+	function DelayVisualizer($ele, maxColumns) {
+		this._actualDelays = [];
+		this._calculatedDelays = [];
+		this._root = $('<div style="position:relative;width:1100px;height:250px;border:3px solid #ccc;"></div>').appendTo($ele);
+		this._max = 0;
+		this._maxDelaysDisplayed = maxColumns;
+	}
+	DelayVisualizer.prototype.render = function(actualDelay, calculatedDelays) {
+		var i, j;
+		var colors = [ 'red', 'green', 'blue', 'purple' ];
+		this._actualDelays.push(actualDelay);
+		if(this._actualDelays.length > this._maxDelaysDisplayed) {
+			this._actualDelays.splice(0, 1);
+		}
+		while(this._calculatedDelays.length < calculatedDelays.length) {
+			this._calculatedDelays.push([]);
+		}
+		for(i = 0; i < calculatedDelays.length; i++) {
+			this._calculatedDelays[i].push(calculatedDelays[i]);
+			if(this._calculatedDelays[i].length > this._maxDelaysDisplayed) {
+				this._calculatedDelays[i].splice(0, 1);
+			}
+		}
+		this._root.empty();
+		for(i = 0; i < this._actualDelays.length; i++) {
+			if(this._actualDelays[i] > this._max) {
+				this._max = this._actualDelays[i];
+			}
+			for(j = 0; j < this._calculatedDelays.length; j++) {
+				if(this._calculatedDelays[j][i] > this._max) {
+					this._max = this._calculatedDelays[j][i];
+				}
+			}
+		}
+		for(i = 0; i < this._actualDelays.length; i++) {
+			$('<div style="position:absolute;left:' + (100 * i / this._maxDelaysDisplayed) + '%;bottom:0%;background-color:black;width:' + (100 / this._maxDelaysDisplayed) + '%;height:' + 100 * this._actualDelays[i] / this._max + '%;"></div>').appendTo(this._root);
+			for(j = 0; j < this._calculatedDelays.length; j++) {
+				$('<div style="position:absolute;left:' + (100 * i / this._maxDelaysDisplayed) + '%;bottom:0%;border-top:3px solid ' + colors[j % colors.length] + ';width:' + (100 / this._maxDelaysDisplayed) + '%;height:' + 100 * this._calculatedDelays[j][i] / this._max + '%;"></div>').appendTo(this._root);
+			}
+		}
+	};
+
+
+
+	function DelayCalculatorTester(Calcs, $ele, ms, maxColumns) {
+		var i;
+		var delay200ms = [198, 202, 225, 219, 181, 188, 200, 215, 206, 195, 193, 181, 191, 203, 177, 221, 207, 200, 200, 181, 184, 223, 197, 191, 205, 203, 201, 221, 194, 192, 190, 192, 224, 181, 213, 191, 204, 188, 218, 196, 186, 188, 209, 197, 179, 190, 207, 211, 195, 199, 200, 198, 187, 191, 185, 207, 224, 200, 209, 195];
+		var delay140ms = [131, 154, 125, 149, 142, 148, 148, 148, 154, 148, 155, 123, 147, 144, 126, 148, 131, 133, 126, 143, 130, 137, 127, 131, 156, 128, 155, 154, 147, 128, 138, 144, 122, 147, 141, 140, 138, 153, 158, 128, 155, 145, 141, 135, 140, 134, 132, 124, 137, 131, 127, 155, 125, 124, 145, 154, 123, 141, 158, 155];
+		var delay110ms = [97, 108, 116, 93, 123, 125, 123, 121, 115, 100, 92, 122, 127, 96, 120, 102, 111, 118, 103, 125, 96, 126, 102, 110, 101, 107, 129, 129, 128, 91, 114, 111, 96, 111, 106, 106, 106, 110, 108, 91, 94, 104, 122, 127, 90, 109, 116, 125, 122, 119, 108, 118, 111, 93, 93, 120, 126, 116, 118, 129];
+		var delay90ms = [82, 90, 86, 92, 97, 94, 91, 98, 98, 87, 90, 97, 88, 90, 97, 84, 97, 93, 83, 90, 87, 93, 82, 90, 83, 92, 91, 98, 84, 85, 85, 85, 85, 93, 83, 91, 85, 81, 96, 96, 96, 94, 87, 90, 92, 84, 82, 84, 97, 97, 84, 94, 95, 97, 84, 93, 87, 95, 98, 87];
+		var delay80ms = [74, 80, 77, 73, 82, 84, 86, 74, 72, 82, 87, 74, 78, 83, 76, 73, 79, 84, 78, 76, 73, 74, 83, 86, 80, 88, 87, 80, 75, 80, 85, 87, 87, 87, 83, 78, 74, 78, 82, 85, 86, 77, 87, 79, 82, 87, 73, 79, 74, 87, 82, 74, 73, 79, 72, 80, 81, 86, 83, 77];
+		var delay60ms = [54, 63, 67, 59, 65, 63, 55, 55, 57, 54, 58, 57, 58, 65, 54, 56, 66, 65, 56, 63, 55, 53, 56, 59, 67, 54, 53, 59, 56, 63, 66, 58, 54, 63, 62, 60, 62, 56, 56, 55, 59, 53, 56, 54, 66, 54, 59, 64, 63, 63, 54, 62, 57, 66, 64, 61, 58, 65, 56, 59];
+		var delay30ms = [34, 33, 30, 27, 32, 28, 31, 25, 33, 28, 28, 32, 26, 26, 27, 31, 34, 32, 32, 32, 25, 26, 32, 29, 27, 26, 26, 30, 28, 30, 27, 27, 31, 32, 33, 34, 26, 30, 26, 34, 28, 29, 33, 28, 28, 30, 32, 35, 30, 26, 26, 31, 34, 31, 34, 34, 34, 25, 34, 29];
+		var delay15ms = [15, 13, 16, 16, 14, 15, 16, 14, 14, 17, 14, 17, 17, 15, 15, 14, 14, 14, 16, 16, 16, 15, 13, 16, 16, 15, 17, 16, 16, 15, 17, 15, 16, 14, 17, 16, 16, 15, 14, 15, 16, 14, 17, 17, 16, 14, 16, 17, 15, 13, 14, 13, 16, 15, 14, 14, 14, 14, 16, 16];
+		var delays = [ delay15ms, delay30ms, delay60ms, delay80ms, delay90ms, delay110ms, delay200ms ];
+		var visualizer = new DelayVisualizer($ele, maxColumns);
+		var calcs = [];
+		var currDelay = 6;
+		for(i = 0; i < Calcs.length; i++) {
+			calcs[i] = new Calcs[i]();
+		}
+		setInterval(function() {
+			var delay = delays[currDelay][Math.floor(Math.random() * (delays[currDelay].length))];
+			if(Math.random() < 0.008) {
+				currDelay = Math.floor(Math.random() * (delays.length));
+			}
+			if(Math.random() < 0.005) {
+				delay *= 1.1 + 1.9 * Math.random();
+			}
+			var predictions = [];
+			for(i = 0; i < calcs.length; i++) {
+				calcs[i].addDelay(delay);
+				predictions[i] = calcs[i].getDelay();
+			}
+			visualizer.render(delay, predictions);
+		}, ms);
+	}
 
 
 
@@ -803,9 +1085,10 @@ var GameCommon = (function() {
 		GamePlayer: GamePlayer,
 		Game: Game,
 		Connection: Connection,
-		DelayCalculator: DelayCalculator,
-		DelayCalculator2: DelayCalculator2,
-		DelayCalculatorEvaluator: DelayCalculatorEvaluator
+		DelayCalculator: DelayCalculator3,
+		DelayCalculatorEvaluator: DelayCalculatorEvaluator,
+		DelayVisualizer: DelayVisualizer,
+		DelayCalculatorTester: DelayCalculatorTester
 	};
 })();
 
