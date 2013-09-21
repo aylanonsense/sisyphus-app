@@ -75,7 +75,9 @@ var GameClient = (function() {
 	};
 	GameRunner.prototype._update = function(ms) {
 		this._gamePlayer.update(ms);
-		this._renderer.render(this._gamePlayer.getState());
+		var state = this._gamePlayer.getState();
+		state.ping = this._networkHandler.getPing();
+		this._renderer.render(state);
 	};
 	GameRunner.prototype.stop = function() {
 		if(this._timer !== null) {
@@ -210,11 +212,20 @@ var GameClient = (function() {
 			$('<p><b>speed:</b> ' + t + '%</p>').css({
 				position: 'absolute',
 				bottom: 0,
-				left: 0,
+				right: 0,
 				padding: 0,
 				margin: 0
 			}).appendTo(this._root);
 		}
+
+		//show ping
+		$('<p><b>latency:</b> ' + Math.floor(state.ping) + 'ms</p>').css({
+			position: 'absolute',
+			bottom: 0,
+			left: 0,
+			padding: 0,
+			margin: 0
+		}).appendTo(this._root);
 	};
 	Renderer.prototype.onInputEventFired = function(callback) {
 		this._inputCallbacks.push(callback);
@@ -334,6 +345,9 @@ var GameClient = (function() {
 	};
 	NetworkHandler.prototype.onReceiveState = function(callback) {
 		this._receiveStateCallbacks.push(callback);
+	};
+	NetworkHandler.prototype.getPing = function() {
+		return this._conn.getPing();
 	};
 
 
