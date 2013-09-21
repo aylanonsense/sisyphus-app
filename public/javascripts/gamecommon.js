@@ -349,7 +349,7 @@ var GameCommon = (function() {
 		this._socket.on('PING_REQUEST', function(message) {
 			self._lastPingId = message.id;
 			self._lastPingTime = Date.now();
-			self._socket.emit('PING', { id: id, ping: self.getPing() });
+			self._socket.emit('PING', { id: message.id, ping: self.getPing() });
 		});
 		this._socket.on('PING', function(message) {
 			if(self._lastPingId === message.id) {

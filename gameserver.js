@@ -165,6 +165,8 @@ function NetworkHandler() {
 	this._connectCallbacks = [];
 	this._disconnectCallbacks = [];
 	this._receiveCommandCallbacks = [];
+	this._nextPlayerIndexToPing = 0;
+	this._pingTimer = null;
 }
 NetworkHandler.prototype.addConnection = function(conn) {
 	var self = this;
@@ -196,11 +198,23 @@ NetworkHandler.prototype.addConnection = function(conn) {
 	this._connectCallbacks.forEach(function(callback) {
 		callback(playerId);
 	});
+	if(this._playerIds.length === 1) {
+		this._startPinging();
+	}
 };
 NetworkHandler.prototype._removePlayer = function(playerId) {
 	for(var i = 0; i < this._playerIds.length; i++) {
 		if(this._playerIds[i] === playerId) {
 			this._playerIds.splice(i, 1);
+			if(this._nextPlayerIndexToPing > i) {
+				this._nextPlayerIndexToPing--;
+			}
+			else if(this._nextPlayerIndexToPing >= this._playerIds.length) {
+				this._nextPlayerIndexToPing = 0;
+			}
+			if(this._playerIds.length === 0) {
+				this._stopPinging();
+			}
 			break;
 		}
 	}
@@ -208,6 +222,32 @@ NetworkHandler.prototype._removePlayer = function(playerId) {
 };
 NetworkHandler.prototype._send = function(playerId, message) {
 	this._players[playerId].send(message);
+};
+NetworkHandler.prototype._startPinging = function() {
+	this._nextPlayerIndexToPing = 0;
+	this._pingNext();
+};
+NetworkHandler.prototype._stopPinging = function() {
+	if(this._pingTimer !== null) {
+		clearTimeout(this._pingTimer);
+	}
+	this._pingTimer = null;
+};
+NetworkHandler.prototype._pingNext = function() {
+	if(this._pingTimer !== null) {
+		clearTimeout(this._pingTimer);
+	}
+	var self = this;
+	var ms = Math.max(125, 1250 / this._playerIds.length);
+	this._ping(this._playerIds[this._nextPlayerIndexToPing]);
+	this._nextPlayerIndexToPing++;
+	if(this._nextPlayerIndexToPing >= this._playerIds.length) {
+		this._nextPlayerIndexToPing = 0;
+	}
+	this._pingTimer = setTimeout(function() {
+		self._pingTimer = null;
+		self._pingNext();
+	}, ms);
 };
 NetworkHandler.prototype._sendToAll = function(message) {
 	for(var i = 0; i < this._playerIds.length; i++) {
@@ -220,6 +260,9 @@ NetworkHandler.prototype._sendToAllExcept = function(playerId, message) {
 			this._players[this._playerIds[i]].send(message);
 		}
 	}
+};
+NetworkHandler.prototype._ping = function(playerId) {
+	this._players[playerId].ping();
 };
 NetworkHandler.prototype.sendState = function (playerId, state, time) {
 	this._send(playerId, this._wrapState(state, time));
