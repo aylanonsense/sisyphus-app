@@ -173,7 +173,10 @@ var GameCommon = (function() {
 		return this._gameTimeOfLastNow;
 	};
 	GamePlayer.prototype.getState = function() {
-		return this._game.getState();
+		var state = this._game.getState();
+		state.timeMultiplier = this._timeMultiplier;
+		state.time = this.getSplitSecondTime();
+		return state;
 	};
 	GamePlayer.prototype.setStateAndTime = function(state, time) {
 		this._game.setState(state);
