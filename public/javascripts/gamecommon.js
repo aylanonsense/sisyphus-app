@@ -347,28 +347,52 @@ var GameCommon = (function() {
 		//socket
 		this._socket = params.socket;
 		this._socket.on('PING_REQUEST', function(message) {
-			self._lastPingId = message.id;
-			self._lastPingTime = Date.now();
-			self._socket.emit('PING', { id: message.id, ping: self.getPing() });
+			self._waitForSimulatedLag(function() {
+				self._lastPingId = message.id;
+				self._lastPingTime = Date.now();
+				self._socket.emit('PING', { id: message.id, ping: self.getPing() });
+			});
 		});
 		this._socket.on('PING', function(message) {
-			if(self._lastPingId === message.id) {
-				self._pings.push(Date.now() - self._lastPingTime);
-				if(self._pings.length > 4) {
-					self._pings.shift();
+			self._waitForSimulatedLag(function() {
+				if(self._lastPingId === message.id) {
+					self._pings.push(Date.now() - self._lastPingTime);
+					if(self._pings.length > 4) {
+						self._pings.shift();
+					}
 				}
-			}
-			self._socket.emit('PING_RESPONSE', { id: message.id, ping: self.getPing() });
+				self._socket.emit('PING_RESPONSE', { id: message.id, ping: self.getPing() });
+			});
 		});
 		this._socket.on('PING_RESPONSE', function(message) {
-			if(self._lastPingId === message.id) {
-				self._pings.push(Date.now() - self._lastPingTime);
-				if(self._pings.length > 4) {
-					self._pings.shift();
+			self._waitForSimulatedLag(function() {
+				if(self._lastPingId === message.id) {
+					self._pings.push(Date.now() - self._lastPingTime);
+					if(self._pings.length > 4) {
+						self._pings.shift();
+					}
 				}
-			}
+			});
 		});
 	}
+	Connection.prototype._waitForSimulatedLag = function(callback) {
+		if(this._isSimulatingLag) {
+			var now = Date.now();
+			var lag = (Math.random() < this._simulatedLagSpikeChance ? 1.5 + 2.5 * Math.random() : 1) *
+					(Math.random() * (this._simulatedLagMax - this._simulatedLagMin) + this._simulatedLagMin);
+			if(this._lastLaggedMessageTime !== null && now + lag < this._lastLaggedMessageTime) {
+				this._lastLaggedMessageTime += 10;
+				setTimeout(callback, this._lastLaggedMessageTime - now);
+			}
+			else {
+				this._lastLaggedMessageTime = now + lag;
+				setTimeout(callback, lag);
+			}
+		}
+		else {
+			callback();
+		}
+	};
 	Connection.prototype.getPing = function() {
 		switch(this._pings.length) {
 			case 1: return Math.floor(1.00 * this._pings[0]);
@@ -431,26 +455,9 @@ var GameCommon = (function() {
 	Connection.prototype.onReceive = function(callback) {
 		var self = this;
 		this._socket.on('GAME_MESSAGES', function(messages) {
-			if(self._isSimulatingLag) {
-				var now = Date.now();
-				var lag = (Math.random() < self._simulatedLagSpikeChance ? 1.5 + 2.5 * Math.random() : 1) *
-						(Math.random() * (self._simulatedLagMax - self._simulatedLagMin) + self._simulatedLagMin);
-				if(self._lastLaggedMessageTime !== null && now + lag < self._lastLaggedMessageTime) {
-					self._lastLaggedMessageTime += 10;
-					setTimeout(function() {
-						messages.forEach(callback);
-					}, self._lastLaggedMessageTime - now);
-				}
-				else {
-					self._lastLaggedMessageTime = now + lag;
-					setTimeout(function() {
-						messages.forEach(callback);
-					}, lag);
-				}
-			}
-			else {
+			self._waitForSimulatedLag(function() {
 				messages.forEach(callback);
-			}
+			});
 		});
 	};
 	Connection.prototype.onDisconnect = function(callback) {
