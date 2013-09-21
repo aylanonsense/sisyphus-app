@@ -3,7 +3,6 @@ var GameClient = (function() {
 	var Game = GameCommon.Game;
 	var Connection = GameCommon.Connection;
 	var DelayCalculator = GameCommon.DelayCalculator;
-	var DelayCalculator2 = GameCommon.DelayCalculator2;
 	var DelayCalculatorEvaluator = GameCommon.DelayCalculatorEvaluator;
 	var DelayVisualizer = GameCommon.DelayVisualizer;
 
@@ -77,6 +76,7 @@ var GameClient = (function() {
 		this._gamePlayer.update(ms);
 		var state = this._gamePlayer.getState();
 		state.ping = this._networkHandler.getPing();
+		state.delay = this._delayManager.getDelay();
 		this._renderer.render(state);
 	};
 	GameRunner.prototype.stop = function() {
@@ -118,6 +118,9 @@ var GameClient = (function() {
 				//console.log("Slowing game down by " + ms);
 			}
 		}
+	};
+	DelayManager.prototype.getDelay = function() {
+		return this._delayCalc.getDelay();
 	};
 
 
@@ -222,6 +225,15 @@ var GameClient = (function() {
 		$('<p><b>latency:</b> ' + Math.floor(state.ping) + 'ms</p>').css({
 			position: 'absolute',
 			bottom: 0,
+			left: 0,
+			padding: 0,
+			margin: 0
+		}).appendTo(this._root);
+
+		//show delay
+		$('<p><b>delay:</b> ' + Math.floor(state.delay) + 'ms</p>').css({
+			position: 'absolute',
+			bottom: '20px',
 			left: 0,
 			padding: 0,
 			margin: 0
