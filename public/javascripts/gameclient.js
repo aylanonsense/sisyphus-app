@@ -94,7 +94,8 @@ var GameClient = (function() {
 	DelayManager.prototype.manageDelay = function(game, time) {
 		var now = game.getSplitSecondTime();
 		var actualDelay = now - time;
-		var prevIdealDelay = this._delayCalc.getDelay();
+		console.log(actualDelay);
+		/*var prevIdealDelay = this._delayCalc.getDelay();
 		if(actualDelay > 0) {
 			this._delayCalc.addDelay(actualDelay);
 		}
@@ -117,7 +118,7 @@ var GameClient = (function() {
 				game.slowDown(ms, 1000);
 				//console.log("Slowing game down by " + ms);
 			}
-		}
+		}*/
 	};
 	DelayManager.prototype.getDelay = function() {
 		return this._delayCalc.getDelay();

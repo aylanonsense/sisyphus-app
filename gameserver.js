@@ -54,7 +54,7 @@ function GameRunner() {
 		var serverTime = self._gamePlayer.getSplitSecondTime();
 		var player = self._players.getPlayer(playerId);
 		player.addDelay(serverTime - clientTime);
-		self._controller.handleCommand(playerId, command, clientTime + player.getDelay());
+		self._controller.handleCommand(playerId, command, clientTime);// + player.getDelay());
 	});
 	this._controller.onDeltaGenerated(function(delta, time) {
 		time = self._gamePlayer.handleDelta(delta, time);

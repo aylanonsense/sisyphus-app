@@ -830,6 +830,211 @@ var GameCommon = (function() {
 
 
 
+	function DelayAdjustmentCalculator(params) {
+		this._delays = [];
+		this._adjustment = 0;
+		this._numDelaysToBaseAdjustmentOn = 8;
+		/*this._prevSuggestion = null;
+		this._riseReqdToChange = [200, 120, 50, 15, 10, 5];
+		this._riseReqdToChangeIfStable = [80, 50, 25, 15, 10, 5];
+		this._fallReqdToChange = [300, 180, 100, 80, 50, 25, 10, 5];
+		this._fallReqdToChangeIfStable = [140, 80, 50, 25, 15, 10, 5];
+		this._mismatchLowerBound = [0.9];
+		this._mismatchUpperBound = [1.1];
+		this._delaysSinceLastChange = 0;
+		this._numRecentMismatches = 0;
+		this._prevWasMismatch = false;*/
+	}
+	DelayAdjustmentCalculator.prototype.getAdjustment = function() {
+		return this._adjustment;
+	};
+	DelayAdjustmentCalculator.prototype.processAdjustment = function(adjustment) {
+		for(var i = 0; i < this._delays.length; i++) {
+			this._delays[i] = this._delays[i] + adjustment;
+		}
+	};
+	DelayAdjustmentCalculator.prototype.addDelay = function(delay) {
+		this._delays.push(delay);
+		if(this._delays.length > this._numDelaysToBaseAdjustmentOn) {
+			this._delays.splice(0, 1);
+		}
+		this._calculateAdjustment(delay);
+	};
+	DelayAdjustmentCalculator.prototype._calculateAdjustment = function(mostRecentDelay) {
+		//var i, suggestion, max1, max2, max3, max4, max5, sum, nonSpikeAvg;
+		//var i, delay, max1, max2, max3, sum, avgWithoutSpikes;
+		var i, max1, max2, max3, delay, delaysAbove, delaysBelow;
+		if(this._delays.length <= this._numDelaysToBaseAdjustmentOn) {
+			this._adjustment = 0;
+		}
+		else {
+			//separate delays to positive and negative arrays
+			delaysAbove = [];
+			delaysBelow = [];
+			for(i = 0; i < this._delays.length; i++) {
+				if(this._delays[i] <= 0) {
+					delaysBelow.push(this._delays[i]);
+				}
+				else {
+					delaysAbove.push(this._delays[i]);
+				}
+			}
+
+			//if three or more delays are above, we need to consider adjusting downward
+			if(delaysAbove.length > 3) {
+				max1 = max2 = max3 = null;
+				for(i = 0; i < this._delays.length; i++) {
+					delay = this._delays[i];
+					if(max1 === null || max1 < delay) {
+						max3 = max2;
+						max2 = max1;
+						max1 = delay;
+					}
+					else if(max2 === null || max2 < delay) {
+						max3 = max2;
+						max2 = delay;
+					}
+					else if(max3 === null || max3 < delay) {
+						max3 = delay;
+					}
+				}
+			}
+
+			//if two or fewer delays are below, we need to consider adjusting upward
+			else if(mostRecentDelay <= 0) {
+
+			}
+
+
+			/*//generate suggestion
+			max1 = 0;
+			max2 = 0;
+			max3 = 0;
+			sum = 0;
+			for(i = 1; i <= this._delaysToBaseSuggestionOn; i++) {
+				if(this._prev(i) > max1) {
+					max3 = max2;
+					max2 = max1;
+					max1 = this._prev(i);
+				}
+				else if(this._prev(i) > max2) {
+					max3 = max2;
+					max2 = this._prev(i);
+				}
+				else if(this._prev(i) > max3) {
+					max3 = this._prev(i);
+				}
+				sum += this._prev(i);
+			}
+			nonSpikeAvg = (sum - max1 - max2) / (this._delaysToBaseSuggestionOn - 2);
+			if(max1 < 1.25 * nonSpikeAvg) {
+				suggestion = max1;
+			}
+			else if(max2 < 1.25 * nonSpikeAvg) {
+				suggestion = max2;
+			}
+			else {
+				suggestion = max3;
+			}
+
+			//raise suggestion if it's too low and would require significant rewinds
+			max1 = 0;
+			max2 = 0;
+			max3 = 0;
+			max4 = 0;
+			sum = 0;
+			for(i = 1; i <= this._historicalDelays.length; i++) {
+				if(this._prev(i) > max1) {
+					max4 = max3;
+					max3 = max2;
+					max2 = max1;
+					max1 = this._prev(i);
+				}
+				else if(this._prev(i) > max2) {
+					max4 = max3;
+					max3 = max2;
+					max2 = this._prev(i);
+				}
+				else if(this._prev(i) > max3) {
+					max4 = max3;
+					max3 = this._prev(i);
+				}
+				else if(this._prev(i) > max4) {
+					max4 = this._prev(i);
+				}
+				sum += this._prev(i);
+			}
+			if(max4 > suggestion) {
+				suggestion = max4;
+			}
+			if(max3 < 1.25 * nonSpikeAvg && max3 > suggestion) {
+				suggestion = max3;
+			}
+
+			//the suggestion can't be less than the most recent delay
+			if(suggestion < this._adjustment && suggestion < mostRecentDelay) {
+				suggestion = Math.min(this._adjustment, mostRecentDelay);
+			}
+
+			//determine if suggestion is stable
+			var isStable = (this._prevSuggestion !== null && 0.9 * suggestion < this._prevSuggestion && this._prevSuggestion < 1.1 * suggestion);
+
+			//determine if the delta is large enough to warrant a change
+			var deltaReqd;
+			if(isStable) {
+				if(suggestion < this._adjustment) {
+					deltaReqd = this._fallReqdToChangeIfStable[Math.min(this._numRecentMismatches, this._fallReqdToChangeIfStable.length - 1)];
+				}
+				else {
+					deltaReqd = this._riseReqdToChangeIfStable[Math.min(this._numRecentMismatches, this._riseReqdToChangeIfStable.length - 1)];
+				}
+			}
+			else {
+				if(suggestion < this._adjustment) {
+					deltaReqd = this._fallReqdToChange[Math.min(this._numRecentMismatches, this._fallReqdToChange.length - 1)];
+				}
+				else {
+					deltaReqd = this._riseReqdToChange[Math.min(this._numRecentMismatches, this._riseReqdToChange.length - 1)];
+				}
+			}
+			var delta = suggestion - this._adjustment;
+			if(delta < 0) {
+				delta *= -1;
+			}
+			if(delta > deltaReqd) {
+				//change to the suggested delay
+				this._adjustment = Math.floor(suggestion);
+				this._prevSuggestion = null;
+				this._delaysSinceLastChange = 0;
+				this._numRecentMismatches = 0;
+				this._prevWasMismatch = false;
+			}
+			else {
+				//maintain current delay
+				this._prevSuggestion = suggestion;
+				if(suggestion < this._mismatchLowerBound[Math.min(this._mismatchLowerBound.length - 1, this._delaysSinceLastChange)] * this._adjustment || suggestion > this._mismatchUpperBound[Math.min(this._mismatchUpperBound.length - 1, this._delaysSinceLastChange)] * this._adjustment) {
+					this._numRecentMismatches++;
+					this._prevWasMismatch = true;
+				}
+				else {
+					if(!this._prevWasMismatch) {
+						numRecentMismatches = 0;
+					}
+					this._prevWasMismatch = false;
+				}
+				this._delaysSinceLastChange++;
+			}*/
+		}
+	};
+	DelayAdjustmentCalculator.prototype._prev = function(delta) {
+		if(delta > this._historicalDelays.length) {
+			return null;
+		}
+		return this._historicalDelays[this._historicalDelays.length - 1 - delta];
+	};
+
+
+
 	function DelayVisualizer($ele, maxColumns) {
 		this._actualDelays = [];
 		this._calculatedDelays = [];
