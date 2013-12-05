@@ -1,6 +1,6 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
-define([ 'net/DynamicPriorityConnection', 'net/PriorityEnum' ], function(DynamicPriorityConnection, PRIORITY) {
-	var SuperConstructor = DynamicPriorityConnection;
+define([ 'net/PreFlushConnection', 'net/PriorityEnum' ], function(PreFlushConnection, PRIORITY) {
+	var SuperConstructor = PreFlushConnection;
 	var SuperClass = SuperConstructor.prototype;
 
 	function TimeoutConnection(socket) {
