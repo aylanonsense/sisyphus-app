@@ -9,12 +9,15 @@ define([ 'net/PriorityConnection', 'net/PriorityEnum' ], function(PriorityConnec
 	}
 	DynamicPriorityConnection.prototype = Object.create(SuperClass);
 	DynamicPriorityConnection.prototype.sendDynamic = function(messageFunc, priority) {
-		var dynamicMessage = new DynamicMessage(this, messageFunc);
+		var dynamicMessage = new DynamicMessage(this, messageFunc, priority);
 		var index;
 		this._dynamicMessages.push(dynamicMessage);
 		index = this._buffer.add(priority);
 		dynamicMessage.setPriorityIndex(index);
 		return {
+			getPriority: function() {
+				return dynamicMessage.getPriority();
+			},
 			upgradePriority: function(priority) {
 				dynamicMessage.upgradePriority(priority);
 			},
@@ -43,13 +46,17 @@ define([ 'net/PriorityConnection', 'net/PriorityEnum' ], function(PriorityConnec
 		}
 	};
 
-	function DynamicMessage(conn, messageFunc) {
+	function DynamicMessage(conn, messageFunc, priority) {
 		this._conn = conn;
 		this._hasBeenSent = false;
 		this._whenSentCallbacks = [];
+		this._priority = priority;
 		this._messageFunc = messageFunc;
 		this._priorityIndex = null;
 	}
+	DynamicMessage.prototype.getPriority = function() {
+		return this._priority;
+	};
 	DynamicMessage.prototype.getMessage = function() {
 		return this._messageFunc.call(this);
 	};
@@ -57,7 +64,8 @@ define([ 'net/PriorityConnection', 'net/PriorityEnum' ], function(PriorityConnec
 		this._priorityIndex = index;
 	};
 	DynamicMessage.prototype.upgradePriority = function(priority) {
-		if(!this._hasBeenSent) {
+		if(!this._hasBeenSent && priority > this._priority) {
+			this._priority = priority;
 			this._conn.upgradePriority(this._priorityIndex, priority);
 		}
 	};
