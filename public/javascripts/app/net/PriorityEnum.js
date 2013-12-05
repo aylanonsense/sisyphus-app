@@ -1,8 +1,8 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
 define({
-	CRITICAL: 4,
-	HIGH: 3,
-	NORMAL: 2,
-	LOW: 1,
-	INSIGNIFICANT: 0
+	CRITICAL: 5,
+	HIGH: 4,
+	NORMAL: 3,
+	LOW: 2,
+	INSIGNIFICANT: 1
 });

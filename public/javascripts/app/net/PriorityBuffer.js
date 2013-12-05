@@ -18,8 +18,10 @@ define(function() {
 		}, this._maxTimeBetweenFlushes);
 	};
 	PriorityBuffer.prototype.add = function(priority) {
+		var index = this._arr.length;
 		this._arr.push(priority);
 		this._determineIfFlushRequired();
+		return index;
 	};
 	PriorityBuffer.prototype.addAll = function(priorities) {
 		var i, len;
@@ -27,6 +29,11 @@ define(function() {
 			this._arr.push(priorities[i]);
 		}
 		this._determineIfFlushRequired();
+	};
+	PriorityBuffer.prototype.change = function(index, priority) {
+		this._arr[index] = priority;
+		this._determineIfFlushRequired();
+		return index;
 	};
 	PriorityBuffer.prototype.flush = function() {
 		this._arr = [];
