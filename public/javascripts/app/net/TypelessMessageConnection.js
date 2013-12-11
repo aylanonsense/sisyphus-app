@@ -10,11 +10,11 @@ define([ 'net/StreamingConnection' ], function(StreamingConnection) {
 	TypelessMessageConnection.prototype.send = function(message, priority) {
 		SuperClass.send.call(this, 'message', message, priority);
 	};
-	TypelessMessageConnection.prototype.sendDynamic = function(messageFunc, priority) {
-		SuperClass.sendDynamic.call(this, 'message', messageFunc, priority);
+	TypelessMessageConnection.prototype.sendDynamic = function(context, messageFunc, priority) {
+		SuperClass.sendDynamic.call(this, 'message', context, messageFunc, priority);
 	};
-	TypelessMessageConnection.prototype.openStream = function(messageFunc) {
-		return SuperClass.openStream.call(this, 'message', messageFunc);
+	TypelessMessageConnection.prototype.openStream = function(context, messageFunc) {
+		return SuperClass.openStream.call(this, 'message', context, messageFunc);
 	};
 	TypelessMessageConnection.prototype.onReceive = function(context, callback) {
 		SuperClass.onReceive.call(this, 'message', context, callback);

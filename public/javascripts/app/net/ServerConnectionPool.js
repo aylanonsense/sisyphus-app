@@ -6,7 +6,7 @@ define([ 'net/ServerConnection', 'util/EventState' ], function(ServerConnection,
 		this._NEXT_STREAM_ID = 0;
 		this._acceptingConnections = false;
 		this._connections = [];
-		this._openStreams = [];
+		this._streams = [];
 		this._serverConnectionPoolState = new EventState();
 		app.io.route('appjoinrequest', function(req) {
 			var connId;
@@ -30,9 +30,9 @@ define([ 'net/ServerConnection', 'util/EventState' ], function(ServerConnection,
 						conn: conn,
 						streams: {}
 					};
-					for(i = 0, len = this._openStreams.length; i < len; i++) {
-						stream = this._openStreams[i];
-						streams[stream.id] = conn.openStream(stream.messageType, stream.messageFunc); 
+					for(i = 0, len = this._streams.length; i < len; i++) {
+						stream = this._streams[i];
+						connObj.streams[stream.id] = conn.openStream(stream.context, stream.messageFunc); 
 					}
 					this._connections.push(connObj);
 					self._serverConnectionPoolState.fireEvent('connected', conn);
@@ -52,22 +52,26 @@ define([ 'net/ServerConnection', 'util/EventState' ], function(ServerConnection,
 	ServerConnectionPool.prototype.onConnected = function(context, callback) {
 		this._serverConnectionPoolState.onEvent('connected', context, callback);
 	};
-	ServerConnectionPool.prototype.sendToAll = function(messageType, message, priority) {
+	ServerConnectionPool.prototype.sendToAll = function(message, priority) {
 		var i, len;
 		for(i = 0, len = this._connections.length; i < len; i++) {
-			this._connections[i].conn.send(messageType, message, priority);
+			this._connections[i].conn.send(message, priority);
 		}
 	};
-	ServerConnectionPool.prototype.openStreamsToAll = function(messageType, messageFunc) {
+	ServerConnectionPool.prototype.openStreamsToAll = function(context, messageFunc) {
+		if(arguments.length === 1) {
+			messageFunc = context;
+			context = this;
+		}
 		var i, len, stream;
 		var self = this;
 		var streamId = this._NEXT_STREAM_ID++;
 		for(i = 0, len = this._connections.length; i < len; i++) {
-			this._connections[i].streams[streamId] = this._connections[i].conn.openStream(messageType, messageFunc);
+			this._connections[i].streams[streamId] = this._connections[i].conn.openStream(context, messageFunc);
 		}
-		this._openStreams.push({
+		this._streams.push({
 			id: streamId,
-			messageType: messageType,
+			context: context,
 			messageFunc: messageFunc
 		});
 		return {
@@ -85,9 +89,9 @@ define([ 'net/ServerConnection', 'util/EventState' ], function(ServerConnection,
 			},
 			closeStreams: function() {
 				var i, len;
-				for(i = 0, len = self._openStreams.length; i < len; i++) {
-					if(self._openStreams[i].id === streamId) {
-						self._openStreams.splice(i, 1);
+				for(i = 0, len = self._streams.length; i < len; i++) {
+					if(self._streams[i].id === streamId) {
+						self._streams.splice(i, 1);
 						break;
 					}
 				}

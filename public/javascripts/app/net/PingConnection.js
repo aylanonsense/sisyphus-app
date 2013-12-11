@@ -99,14 +99,23 @@ define([ 'net/PriorityConnection', 'net/PriorityEnum', 'util/EventState' ], func
 			message: message
 		}, priority);
 	};
-	PingConnection.prototype.sendDynamic = function(messageType, messageFunc, priority) {
+	PingConnection.prototype.sendDynamic = function(messageType, context, messageFunc, priority) {
+		if(arguments.length === 2) {
+			messageFunc = context;
+			context = this;
+		}
+		if(arguments.length === 3 && typeof arguments[2] === 'number') {
+			priority = messageFunc;
+			messageFunc = context;
+			context = this;
+		}
 		var wrappedMessageFunc = function() {
 			return {
 				type: messageType,
 				message: messageFunc.call(this)
 			};
 		};
-		return SuperClass.sendDynamic.call(this, 'message', wrappedMessageFunc, priority);
+		return SuperClass.sendDynamic.call(this, 'message', context, wrappedMessageFunc, priority);
 	};
 	PingConnection.prototype.onReceive = function(messageType, context, callback) {
 		if(arguments.length === 2) {

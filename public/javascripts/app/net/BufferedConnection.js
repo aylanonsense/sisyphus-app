@@ -32,7 +32,7 @@ define([ 'net/BasicConnection', 'util/EventState' ], function(BasicConnection, E
 			dynamic: true, 
 			messageType: messageType,
 			messageFunc: function() {
-				messageFunc.call(context);
+				return messageFunc.call(context);
 			},
 			setSentTime: function(time) {
 				timeSent = time;

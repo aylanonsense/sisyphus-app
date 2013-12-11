@@ -7,7 +7,12 @@ define([ 'net/PingConnection', 'net/PriorityEnum', 'util/EventState' ], function
 		SuperConstructor.call(this, socket);
 	}
 	StreamingConnection.prototype = Object.create(SuperClass);
-	StreamingConnection.prototype.openStream = function(messageType, messageFunc) {
+	StreamingConnection.prototype.openStream = function(messageType, context, messageFunc) {
+		if(arguments.length === 2) {
+			messageFunc = context;
+			context = this;
+		}
+
 		var self = this;
 		var dynaMessage = null;
 		var timeLastSent = null;
@@ -27,7 +32,7 @@ define([ 'net/PingConnection', 'net/PriorityEnum', 'util/EventState' ], function
 						if(dynaMessage !== null) {
 							timeLastSent = dynaMessage.timeSent();
 						}
-						dynaMessage = self.sendDynamic(messageType, messageFunc, priority);
+						dynaMessage = SuperClass.sendDynamic.call(self, messageType, context, messageFunc, priority);
 					}
 					else {
 						dynaMessage.setPriority(priority);

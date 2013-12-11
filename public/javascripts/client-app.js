@@ -4,6 +4,7 @@ requirejs.config({
 		app: '/javascripts/app',
 		net: '/javascripts/app/net',
 		util: '/javascripts/app/util',
+		accord: '/javascripts/app/accord',
 		lib: '/javascripts/lib'
 	}
 });

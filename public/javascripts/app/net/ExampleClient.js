@@ -9,10 +9,6 @@ define([ 'net/ClientConnection' ], function(ClientConnection) {
 		});
 		this._conn.whenConnected(this, function() {
 			console.log("Connected!");
-			sendTimer = setInterval(function() {
-				console.log("-> Sending: ", "'hello'");
-				self._conn.send('hello');
-			}, 1000);
 		});
 		this._conn.whenDisconnected(this, function() {
 			console.log("Disconnected!");

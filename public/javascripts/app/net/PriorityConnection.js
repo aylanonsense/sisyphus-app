@@ -22,11 +22,20 @@ define([ 'net/BufferedConnection', 'net/PriorityBuffer' ], function(BufferedConn
 		SuperClass.send.call(this, messageType, message);
 		this._buffer.addPriority(priority);
 	};
-	PriorityConnection.prototype.sendDynamic = function(messageType, messageFunc, priority) {
+	PriorityConnection.prototype.sendDynamic = function(messageType, context, messageFunc, priority) {
+		if(arguments.length === 2) {
+			messageFunc = context;
+			context = this;
+		}
+		else if(arguments.length === 3 && typeof arguments[2] === 'number') {
+			priority = messageFunc;
+			messageFunc = context;
+			context = this;
+		}
 		var self = this;
 		var lastSetPriority = null;
 		var changePriorityFunc = null;
-		var dynaMessage = SuperClass.sendDynamic.call(this, messageType, messageFunc);
+		var dynaMessage = SuperClass.sendDynamic.call(this, messageType, context, messageFunc);
 		dynaMessage.getPriority = function() {
 			return lastSetPriority;
 		};
