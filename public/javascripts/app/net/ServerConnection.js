@@ -1,10 +1,10 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
-define([ 'net/TimeoutConnection', 'net/ServerSocket' ], function(TimeoutConnection, ServerSocket) {
-	var SuperConstructor = TimeoutConnection;
+define([ 'net/TypelessMessageConnection', 'net/ServerSocket' ], function(TypelessMessageConnection, ServerSocket) {
+	var SuperConstructor = TypelessMessageConnection;
 	var SuperClass = SuperConstructor.prototype;
 
-	function ServerConnection(rawConn) {
-		SuperConstructor.call(this, new ServerSocket(rawConn));
+	function ServerConnection(rawSocket) {
+		SuperConstructor.call(this, new ServerSocket(rawSocket));
 	}
 	ServerConnection.prototype = Object.create(SuperClass);
 

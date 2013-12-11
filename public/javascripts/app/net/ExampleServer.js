@@ -1,34 +1,29 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
 define([ 'net/ServerConnectionPool' ], function(ServerConnectionPool) {
 	function ExampleServer(app) {
+		this._NEXT_CONN_ID = 0;
 		this._pool = new ServerConnectionPool(app);
-		this._connectionNum = 0;
-		this._bindEvents();
+		this._pool.onConnected(this, function(conn) {
+			var connId = this._NEXT_CONN_ID++;
+			conn.whenConnected(this, function() {
+				console.log("Client " + connId + " connected!");
+			});
+			conn.whenDisconnected(this, function(reason) {
+				console.log("Client " + connId + " disconnected!");
+			});
+			conn.onReceive(this, function(message) {
+				console.log("<- Received from client " + connId + ":", message, "(" + conn.getPing() + ")");
+				console.log("-> Sending to client " + connId + ":   ", message + ' echo');
+				conn.send(message + ' echo');
+			});
+		});
 	}
-	ExampleServer.prototype._bindEvents = function() {
-		this._pool.onConnected(this, this._bindConnectionEvents);
-	};
-	ExampleServer.prototype._bindConnectionEvents = function(conn) {
-		var n = this._connectionNum++;
-		conn.whenConnected(this, function() {
-			console.log("Client " + n + " connected!");
-		});
-		conn.whenDisconnected(this, function(reason) {
-			console.log("Client " + n + " disconnected!");
-		});
-		conn.onReceive(this, function(message) {
-			console.log("<- Received from client " + n + ":", message);
-		});
-		setInterval(function() {
-			console.log("Client " + n + " ping: " + conn.getPing());
-		}, 1000);
-	};
 	ExampleServer.prototype.start = function() {
 		console.log("Starting server");
-		this._pool.start();
+		this._pool.startAcceptingConnections();
 	};
 	ExampleServer.prototype.stop = function() {
-		this._pool.stop();
+		this._pool.stopAcceptingConnections();
 	};
 
 	return ExampleServer;

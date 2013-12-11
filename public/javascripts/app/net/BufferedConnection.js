@@ -1,78 +1,87 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
-define(function() {
+define([ 'net/BasicConnection', 'util/EventState' ], function(BasicConnection, EventState) {
+	var SuperConstructor = BasicConnection;
+	var SuperClass = SuperConstructor.prototype;
+
 	function BufferedConnection(socket) {
-		this._socket = socket;
+		SuperConstructor.call(this, socket);
 		this._bufferedMessages = [];
-		this._onReceiveCallbacks = [];
-		this._onConnectCallbacks = [];
-		this._onDisconnectCallbacks = [];
-		this._wasEverConnected = socket.isConnected();
-		this._disconnectReason = null;
-		this._bindSocketEvents();
-	}
-	BufferedConnection.prototype._bindSocketEvents = function() {
-		this._socket.onReceive('messages', this, function(messages) {
-			var i, j, len, len2;
+		this._bufferedConnectionState = new EventState();
+		SuperClass.onReceive.call(this, 'messages', this, function(messages) {
+			var i, len;
 			for(i = 0, len = messages.length; i < len; i++) {
-				for(j = 0, len2 = this._onReceiveCallbacks.length; j < len2; j++) {
-					if(this._onReceiveCallbacks[j].call(this, messages[i]) === true) {
-						break;
-					}
-				}
+				this._bufferedConnectionState.fireEvent('receive', messages[i]);
 			}
 		});
-	};
-	BufferedConnection.prototype.send = function(message) {
-		this._bufferedMessages.push(message);
-	};
-	BufferedConnection.prototype.sendAll = function(messages) {
-		var i, len;
-		for(i = 0, len = messages.length; i < len; i++) {
-			this._bufferedMessages.push(messages[i]);
-		}
-	};
-	BufferedConnection.prototype.flush = function() {
-		if(this.isConnected()) {
-			this._socket.send('messages', this._bufferedMessages);
-			this._bufferedMessages = [];
-		}
-	};
-	BufferedConnection.prototype.disconnect = function(reason) {
-		if(this.isConnected()) {
-			this._disconnectReason = (reason || 'manual');
-			this._socket.disconnect();
-		}
-	};
-	BufferedConnection.prototype.isConnected = function() {
-		return this._socket.isConnected();
-	};
-	BufferedConnection.prototype.connect = function() {
-		if(!this.isConnected()) {
-			this._socket.connect();
-		}
-	};
-	BufferedConnection.prototype.onReceive = function(context, callback) {
-		if(arguments.length === 1) {
-			callback = context;
-			context = this;
-		}
-		this._onReceiveCallbacks.push(function(message) {
-			return callback.call(context, message);
+	}
+	BufferedConnection.prototype = Object.create(SuperClass);
+	BufferedConnection.prototype.send = function(messageType, message) {
+		this._bufferedMessages.push({
+			dynamic: false,
+			messageType: messageType,
+			message: message
 		});
 	};
-	BufferedConnection.prototype.whenConnected = function(context, callback) {
-		if(arguments.length === 1) {
-			callback = context;
+	BufferedConnection.prototype.sendDynamic = function(messageType, context, messageFunc) {
+		var timeSent = null;
+		if(arguments.length === 2) {
+			messageFunc = context;
 			context = this;
 		}
-		this._socket.whenConnected(context, callback);
+		this._bufferedMessages.push({
+			dynamic: true, 
+			messageType: messageType,
+			messageFunc: function() {
+				messageFunc.call(context);
+			},
+			setSentTime: function(time) {
+				timeSent = time;
+			}
+		});
+		return {
+			hasBeenSent: function() {
+				return timeSent !== null;
+			},
+			timeSent: function() {
+				return timeSent;
+			}
+		};
 	};
-	BufferedConnection.prototype.whenDisconnected = function(context, callback) {
-		if(arguments.length === 1) {
+	BufferedConnection.prototype.flush = function() {
+		var i, len, message;
+		var messages = [];
+		var now = Date.now();
+		if(this.isConnected()) {
+			for(i = 0, len = this._bufferedMessages.length; i < len; i++) {
+				message = this._bufferedMessages[i];
+				if(message.dynamic) {
+					messages.push({
+						type: message.messageType,
+						message: message.messageFunc.call(this)
+					});
+					message.setSentTime(now);
+				}
+				else {
+					messages.push({
+						type: message.messageType,
+						message: message.message
+					});
+				}
+			}
+			this._bufferedMessages = [];
+			SuperClass.send.call(this, 'messages', messages);
+		}
+	};
+	BufferedConnection.prototype.onReceive = function(messageType, context, callback) {
+		if(arguments.length === 2) {
 			callback = context;
 			context = this;
 		}
-		this._socket.whenDisconnected(context, callback);
+		this._bufferedConnectionState.onEvent('receive', this, function(message) {
+			if(messageType === null || message.type === messageType) {
+				callback.call(context, message.message, message.type);
+			}
+		});
 	};
 
 	return BufferedConnection;

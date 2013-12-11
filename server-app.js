@@ -5,6 +5,7 @@ module.exports = function(app) {
 		paths: {
 			app: 'public/javascripts/app',
 			net: 'public/javascripts/app/net',
+			util: 'public/javascripts/app/util',
 			lib: 'public/javascripts/lib'
 		},
 		nodeRequire: require

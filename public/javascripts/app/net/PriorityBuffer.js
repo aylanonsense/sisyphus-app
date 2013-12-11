@@ -1,61 +1,35 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module); }
-define(function() {
+define([ 'util/EventState' ], function(EventState) {
 	function PriorityBuffer() {
-		this._arr = [];
-		this._callbacks = [];
-		this._maxTimeBetweenFlushes = 2000;
-		this._maxTimeBetweenFlushesTimer = null;
-		this._resetMaxTimeBetweenFlushesTimer();
+		this._flushId = 0;
+		this._priorityBufferState = new EventState({
+			flushRequired: false
+		});
+		this._priorities = [];
 	}
-	PriorityBuffer.prototype._resetMaxTimeBetweenFlushesTimer = function() {
+	PriorityBuffer.prototype.whenFlushRequired = function(context, callback) {
+		this._priorityBufferState.whenFlag('flushRequired', true, context, callback);
+	};
+	PriorityBuffer.prototype.addPriority = function(priority) {
 		var self = this;
-		if(this._maxTimeBetweenFlushesTimer !== null) {
-			clearTimeout(this._maxTimeBetweenFlushesTimer);
-		}
-		this._maxTimeBetweenFlushesTimer = setTimeout(function() {
-			self._maxTimeBetweenFlushesTimer = null;
-			self._fireFlushRequiredEvent();
-		}, this._maxTimeBetweenFlushes);
-	};
-	PriorityBuffer.prototype.add = function(priority) {
-		var index = this._arr.length;
-		this._arr.push(priority);
+		var currFlushId = this._flushId;
+		var priorityIndex = this._priorities.length;
+		this._priorities.push(priority);
 		this._determineIfFlushRequired();
-		return index;
-	};
-	PriorityBuffer.prototype.addAll = function(priorities) {
-		var i, len;
-		for(i = 0, len = priorities.length; i < len && !this._hasBeenFlushed; i++) {
-			this._arr.push(priorities[i]);
-		}
-		this._determineIfFlushRequired();
-	};
-	PriorityBuffer.prototype.change = function(index, priority) {
-		this._arr[index] = priority;
-		this._determineIfFlushRequired();
-		return index;
+		return function(newPriority) {
+			if(self._flushId === currFlushId) {
+				self._priorities[priorityIndex] = newPriority;
+			}
+		};
 	};
 	PriorityBuffer.prototype.flush = function() {
-		this._arr = [];
-		this._resetMaxTimeBetweenFlushesTimer();
-	};
-	PriorityBuffer.prototype.onFlushRequired = function(context, callback) {
-		if(arguments.length === 1) {
-			callback = context;
-			context = this;
-		}
-		this._callbacks.push(function() {
-			callback.call(context);
-		});
-	};
-	PriorityBuffer.prototype._fireFlushRequiredEvent = function() {
-		for(var i = 0, len = this._callbacks.length; i < len; i++) {
-			this._callbacks[i].call(this);
-		}
+		this._priorities = [];
+		this._flushId++;
+		this._priorityBufferState.setFlag('flushRequired', false);
 	};
 	PriorityBuffer.prototype._determineIfFlushRequired = function() {
 		//TODO
-		this._fireFlushRequiredEvent();
+		this._priorityBufferState.setFlag('flushRequired', true);
 	};
 
 	return PriorityBuffer;

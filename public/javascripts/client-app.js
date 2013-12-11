@@ -3,6 +3,7 @@ requirejs.config({
 	paths: {
 		app: '/javascripts/app',
 		net: '/javascripts/app/net',
+		util: '/javascripts/app/util',
 		lib: '/javascripts/lib'
 	}
 });
