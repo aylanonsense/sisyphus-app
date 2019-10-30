@@ -4,7 +4,7 @@
   "description": "A node app that's doomed to fail.",
   "version": "0.1.00",
   "dependencies": {
-    "express": "3.3.3",
+    "express": "4.17.1",
     "express.io": "1.1.12",
     "jade": "0.32.0",
     "less-middleware": "0.1.12",
